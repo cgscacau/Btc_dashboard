@@ -4,7 +4,6 @@ import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
-import requests
 import yfinance as yf
 from datetime import datetime, timedelta
 import warnings
@@ -18,7 +17,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS personalizado para interface atrativa
+# CSS personalizado
 st.markdown("""
 <style>
     .main-header {
@@ -66,10 +65,6 @@ st.markdown("""
         text-align: center;
         margin: 0.5rem;
         box-shadow: 0 8px 16px rgba(0,0,0,0.1);
-        transition: transform 0.2s;
-    }
-    .metric-card:hover {
-        transform: translateY(-2px);
     }
     .indicator-safe { color: #4CAF50; font-weight: bold; }
     .indicator-warning { color: #FF9800; font-weight: bold; }
@@ -84,253 +79,197 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-class BitcoinCycleAnalyzer:
-    def __init__(self):
-        self.halving_dates = {
-            '1º Halving': datetime(2012, 11, 28),
-            '2º Halving': datetime(2016, 7, 9),
-            '3º Halving': datetime(2020, 5, 11),
-            '4º Halving': datetime(2024, 4, 20)
-        }
+# Cache otimizado para Streamlit Cloud
+@st.cache_data(ttl=3600, show_spinner=False)
+def fetch_bitcoin_data(period='2y'):
+    """Busca dados do Bitcoin com fallback robusto"""
+    try:
+        btc = yf.Ticker("BTC-USD")
+        data = btc.history(period=period, interval='1d')
         
-    @st.cache_data(ttl=3600)
-    def fetch_bitcoin_data(_self, period='5y'):
-        """Busca dados históricos reais do Bitcoin"""
-        try:
-            # Tentar múltiplas fontes
-            btc = yf.Ticker("BTC-USD")
-            data = btc.history(period=period, interval='1d')
+        if data.empty or len(data) < 100:
+            raise Exception("Dados insuficientes")
             
-            if data.empty:
-                raise Exception("Dados do yfinance indisponíveis")
-                
-            # Calcular médias móveis necessárias
-            data['MA_50'] = data['Close'].rolling(window=50, min_periods=1).mean()
-            data['MA_111'] = data['Close'].rolling(window=111, min_periods=1).mean()
-            data['MA_200'] = data['Close'].rolling(window=200, min_periods=1).mean()
-            data['MA_350'] = data['Close'].rolling(window=350, min_periods=1).mean()
-            data['MA_350_x2'] = data['MA_350'] * 2
-            
-            return data
-            
-        except Exception as e:
-            st.error(f"Erro ao buscar dados reais: {e}")
-            return _self._generate_simulated_data()
+        # Calcular médias móveis
+        data['MA_50'] = data['Close'].rolling(window=50, min_periods=1).mean()
+        data['MA_111'] = data['Close'].rolling(window=111, min_periods=1).mean()
+        data['MA_200'] = data['Close'].rolling(window=200, min_periods=1).mean()
+        data['MA_350'] = data['Close'].rolling(window=350, min_periods=1).mean()
+        data['MA_350_x2'] = data['MA_350'] * 2
+        
+        st.success("✅ Dados reais carregados com sucesso!")
+        return data, True
+        
+    except Exception as e:
+        st.warning(f"⚠️ Usando dados simulados: {str(e)}")
+        return generate_simulation_data(period), False
+
+def generate_simulation_data(period='2y'):
+    """Gera dados simulados realísticos"""
+    days_map = {'1y': 365, '2y': 730, '3y': 1095, '5y': 1825}
+    n_days = days_map.get(period, 730)
     
-    def _generate_simulated_data(self):
-        """Gera dados simulados quando APIs falham"""
-        st.warning("⚠️ Usando dados simulados devido a falha na API")
-        
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=1825)  # 5 anos
-        dates = pd.date_range(start=start_date, end=end_date, freq='D')
-        
-        # Simulação realística baseada em padrões históricos
-        np.random.seed(42)
-        n_days = len(dates)
-        
-        # Preço base com crescimento exponencial e volatilidade
-        price_base = 10000
-        growth_rate = 0.0003  # 0.03% daily average
-        volatility = 0.04     # 4% daily volatility
-        
-        # Gerar série de preços com tendência
-        returns = np.random.normal(growth_rate, volatility, n_days)
-        price_series = price_base * np.exp(np.cumsum(returns))
-        
-        # Adicionar ciclos de halving
-        for i, date in enumerate(dates):
-            days_since_halving = min([
-                (date - halving_date).days 
-                for halving_date in self.halving_dates.values() 
-                if date >= halving_date
-            ] + [float('inf')])
-            
-            if days_since_halving < 500:  # 500 dias pós-halving
-                cycle_multiplier = 1 + (500 - days_since_halving) / 1000
-                price_series[i] *= cycle_multiplier
-        
-        df = pd.DataFrame(index=dates)
-        df['Close'] = price_series
-        df['High'] = df['Close'] * (1 + np.random.uniform(0, 0.05, n_days))
-        df['Low'] = df['Close'] * (1 - np.random.uniform(0, 0.05, n_days))
-        df['Open'] = df['Close'].shift(1).fillna(df['Close'])
-        df['Volume'] = np.random.lognormal(15, 0.5, n_days)
-        
-        # Médias móveis
-        df['MA_50'] = df['Close'].rolling(window=50, min_periods=1).mean()
-        df['MA_111'] = df['Close'].rolling(window=111, min_periods=1).mean()
-        df['MA_200'] = df['Close'].rolling(window=200, min_periods=1).mean()
-        df['MA_350'] = df['Close'].rolling(window=350, min_periods=1).mean()
-        df['MA_350_x2'] = df['MA_350'] * 2
-        
-        return df
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=n_days)
+    dates = pd.date_range(start=start_date, end=end_date, freq='D')
     
-    def calculate_technical_indicators(self, df):
-        """Calcula indicadores técnicos e on-chain (aproximados)"""
-        df = df.copy()
-        
-        # MVRV Z-Score (aproximação baseada em volatilidade)
-        price_ma_365 = df['Close'].rolling(window=365, min_periods=30).mean()
-        price_std_365 = df['Close'].rolling(window=365, min_periods=30).std()
-        df['mvrv_zscore'] = (df['Close'] - price_ma_365) / price_std_365.replace(0, np.nan)
-        
-        # Pi Cycle Top Indicator
-        df['pi_cycle_signal'] = df['MA_111'] > df['MA_350_x2']
-        
-        # Puell Multiple (aproximação)
-        # Baseado na relação entre preço atual e média de longo prazo
-        df['puell_multiple'] = df['Close'] / df['Close'].rolling(window=365, min_periods=30).mean()
-        
-        # RHODL Ratio (aproximação baseada em volatilidade)
-        short_vol = df['Close'].pct_change().rolling(window=30).std()
-        long_vol = df['Close'].pct_change().rolling(window=365).std()
-        df['rhodl_ratio'] = (short_vol / long_vol.replace(0, np.nan)) * 10000
-        
-        # Reserve Risk (aproximação)
-        confidence = df['Close'] / df['Close'].rolling(window=365, min_periods=30).mean()
-        hodl_confidence = 1 / (df['rhodl_ratio'] / 10000 + 0.1)
-        df['reserve_risk'] = confidence / hodl_confidence
-        
-        # Mayer Multiple
-        df['mayer_multiple'] = df['Close'] / df['MA_200']
-        
-        # Drawdown do ATH
-        df['ath'] = df['Close'].expanding().max()
-        df['drawdown_pct'] = ((df['Close'] / df['ath']) - 1) * 100
-        
-        return df
+    np.random.seed(42)  # Reprodutibilidade
     
-    def determine_cycle_phase(self, latest_data):
-        """Determina a fase atual do ciclo baseada em múltiplos indicadores"""
-        price = latest_data['Close']
+    # Simular preços com padrão realístico
+    base_price = 30000
+    prices = []
+    current_price = base_price
+    
+    halving_date = datetime(2024, 4, 20)
+    
+    for date in dates:
+        days_since_halving = (date - halving_date).days
+        
+        # Fator de crescimento baseado no ciclo
+        if days_since_halving < 0:
+            growth = np.random.normal(0.0003, 0.03)  # Pré-halving
+        elif days_since_halving < 500:
+            cycle_boost = min(days_since_halving / 500, 1) * 0.001
+            growth = np.random.normal(0.0008 + cycle_boost, 0.04)  # Pós-halving
+        else:
+            growth = np.random.normal(0.0002, 0.035)  # Estável
+        
+        current_price *= (1 + growth)
+        prices.append(max(current_price, 1000))  # Preço mínimo
+    
+    # Criar DataFrame
+    df = pd.DataFrame(index=dates)
+    df['Close'] = prices
+    df['High'] = df['Close'] * (1 + np.random.uniform(0, 0.02, len(df)))
+    df['Low'] = df['Close'] * (1 - np.random.uniform(0, 0.02, len(df)))
+    df['Open'] = df['Close'].shift(1).fillna(df['Close'])
+    df['Volume'] = np.random.lognormal(15, 0.2, len(df))
+    
+    # Médias móveis
+    df['MA_50'] = df['Close'].rolling(window=50, min_periods=1).mean()
+    df['MA_111'] = df['Close'].rolling(window=111, min_periods=1).mean()
+    df['MA_200'] = df['Close'].rolling(window=200, min_periods=1).mean()
+    df['MA_350'] = df['Close'].rolling(window=350, min_periods=1).mean()
+    df['MA_350_x2'] = df['MA_350'] * 2
+    
+    return df
+
+def calculate_indicators(df):
+    """Calcula indicadores técnicos"""
+    df = df.copy()
+    
+    # MVRV Z-Score (aproximação)
+    ma_365 = df['Close'].rolling(window=365, min_periods=30).mean()
+    std_365 = df['Close'].rolling(window=365, min_periods=30).std()
+    df['mvrv_zscore'] = (df['Close'] - ma_365) / std_365.replace(0, 1)
+    
+    # Pi Cycle Top
+    df['pi_cycle_signal'] = (df['MA_111'] > df['MA_350_x2']) & df['MA_111'].notna() & df['MA_350_x2'].notna()
+    
+    # Puell Multiple (aproximação)
+    df['puell_multiple'] = df['Close'] / ma_365.replace(0, 1)
+    
+    # Mayer Multiple
+    df['mayer_multiple'] = df['Close'] / df['MA_200'].replace(0, 1)
+    
+    # Drawdown
+    df['ath'] = df['Close'].expanding().max()
+    df['drawdown_pct'] = ((df['Close'] / df['ath']) - 1) * 100
+    
+    return df
+
+def determine_cycle_phase(latest_data):
+    """Determina fase do ciclo"""
+    try:
         mvrv = latest_data.get('mvrv_zscore', 0)
         pi_cycle = latest_data.get('pi_cycle_signal', False)
         puell = latest_data.get('puell_multiple', 1)
-        rhodl = latest_data.get('rhodl_ratio', 0)
         mayer = latest_data.get('mayer_multiple', 1)
         drawdown = latest_data.get('drawdown_pct', 0)
         
-        # Sistema de pontuação para determinar fase
-        scores = {
-            'accumulation': 0,
-            'bull-run': 0,
-            'euphoria': 0,
-            'bear-market': 0
-        }
+        # Sistema de pontuação
+        score = 0
         
-        # MVRV Z-Score
         if pd.notna(mvrv):
             if mvrv < -0.5:
-                scores['accumulation'] += 3
-            elif mvrv < 2:
-                scores['bull-run'] += 2
-            elif mvrv < 6:
-                scores['bull-run'] += 1
-                scores['euphoria'] += 1
-            else:
-                scores['euphoria'] += 3
+                score -= 3
+            elif mvrv > 3:
+                score += 3
+            elif mvrv > 1:
+                score += 1
         
-        # Pi Cycle
         if pi_cycle:
-            scores['euphoria'] += 2
+            score += 4
         
-        # Puell Multiple
-        if pd.notna(puell):
-            if puell < 0.5:
-                scores['accumulation'] += 2
-            elif puell < 2:
-                scores['bull-run'] += 2
-            elif puell < 4:
-                scores['bull-run'] += 1
-            else:
-                scores['euphoria'] += 2
+        if pd.notna(puell) and puell > 3:
+            score += 2
+        elif pd.notna(puell) and puell < 0.7:
+            score -= 2
         
-        # Mayer Multiple
-        if pd.notna(mayer):
-            if mayer < 0.8:
-                scores['accumulation'] += 2
-            elif mayer < 1.5:
-                scores['bull-run'] += 2
-            elif mayer < 2.4:
-                scores['bull-run'] += 1
-            else:
-                scores['euphoria'] += 2
+        if pd.notna(mayer) and mayer > 2:
+            score += 2
+        elif pd.notna(mayer) and mayer < 0.8:
+            score -= 2
         
-        # Drawdown
-        if drawdown < -70:
-            scores['accumulation'] += 3
-        elif drawdown < -50:
-            scores['bear-market'] += 2
-        elif drawdown < -20:
-            scores['bull-run'] += 1
+        if drawdown < -60:
+            score -= 3
+        elif drawdown < -30:
+            score -= 1
         
-        # Determinar fase dominante
-        dominant_phase = max(scores, key=scores.get)
-        confidence = scores[dominant_phase] / max(sum(scores.values()), 1)
-        
-        phase_names = {
-            'accumulation': 'Acumulação - Zona de Compra',
-            'bull-run': 'Bull Run - Tendência de Alta',
-            'euphoria': 'Euforia - Zona de Risco',
-            'bear-market': 'Bear Market - Correção'
-        }
-        
-        return dominant_phase, phase_names[dominant_phase], confidence, scores
+        # Determinar fase
+        if score <= -3:
+            return 'accumulation', 'Acumulação - Zona de Compra'
+        elif score >= 4:
+            return 'euphoria', 'Euforia - Zona de Risco'
+        elif score >= 1:
+            return 'bull-run', 'Bull Run - Tendência de Alta'
+        else:
+            return 'bear-market', 'Bear Market - Correção'
+            
+    except Exception:
+        return 'bull-run', 'Bull Run - Tendência de Alta'
 
 def main():
     st.markdown('<h1 class="main-header">₿ Dashboard de Análise de Ciclos do Bitcoin</h1>', 
                 unsafe_allow_html=True)
     
-    # Inicializar analisador
-    analyzer = BitcoinCycleAnalyzer()
-    
-    # Sidebar com controles
-    st.sidebar.header("⚙️ Configurações do Dashboard")
-    
+    # Sidebar
+    st.sidebar.header("⚙️ Configurações")
     period = st.sidebar.selectbox(
         "📅 Período de Análise",
-        ['1y', '2y', '3y', '5y', 'max'],
-        index=2,
-        help="Selecione o período histórico para análise"
+        ['1y', '2y', '3y', '5y'],
+        index=1,
+        help="Selecione o período histórico"
     )
     
     show_halvings = st.sidebar.checkbox("📍 Mostrar Halvings", True)
-    show_explanations = st.sidebar.checkbox("📚 Mostrar Explicações", True)
-    auto_refresh = st.sidebar.checkbox("🔄 Auto Refresh (60s)", False)
     
-    if auto_refresh:
-        import time
-        time.sleep(60)
-        st.rerun()
-    
-    # Disclaimer importante
+    # Disclaimer
     st.markdown("""
     <div class="info-box">
-        <strong>⚠️ Aviso Importante:</strong> Este dashboard combina dados reais (preços) com aproximações 
-        dos indicadores on-chain para fins educacionais. Para análises profissionais, recomenda-se 
-        usar APIs especializadas como Glassnode ou CoinMetrics.
+        <strong>⚠️ Aviso:</strong> Dashboard educacional com aproximações dos indicadores on-chain. 
+        Para análises profissionais, use APIs especializadas.
     </div>
     """, unsafe_allow_html=True)
     
     # Carregar dados
     with st.spinner('🔄 Carregando dados do Bitcoin...'):
-        df = analyzer.fetch_bitcoin_data(period)
-        df = analyzer.calculate_technical_indicators(df)
-    
-    if df is None or df.empty:
-        st.error("❌ Não foi possível carregar os dados. Tente novamente mais tarde.")
-        return
+        df, is_real_data = fetch_bitcoin_data(period)
+        if df is not None and not df.empty:
+            df = calculate_indicators(df)
+        else:
+            st.error("❌ Erro ao carregar dados")
+            return
     
     # Dados atuais
     latest = df.iloc[-1]
     current_price = latest['Close']
     price_change_24h = ((current_price / df['Close'].iloc[-2]) - 1) * 100 if len(df) > 1 else 0
     
-    # Determinar fase atual
-    phase_key, phase_name, confidence, phase_scores = analyzer.determine_cycle_phase(latest)
+    # Determinar fase
+    phase_key, phase_name = determine_cycle_phase(latest)
     
-    # Header com métricas principais
+    # Métricas principais
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
@@ -338,7 +277,7 @@ def main():
         <div class="metric-card">
             <h3>💰 Preço Atual</h3>
             <h2>${current_price:,.0f}</h2>
-            <p>USD</p>
+            <p>{'Real' if is_real_data else 'Simulado'}</p>
         </div>
         """, unsafe_allow_html=True)
     
@@ -352,7 +291,7 @@ def main():
         """, unsafe_allow_html=True)
     
     with col3:
-        next_halving = datetime(2028, 4, 20)  # Estimativa
+        next_halving = datetime(2028, 4, 20)
         days_to_halving = (next_halving - datetime.now()).days
         st.markdown(f"""
         <div class="metric-card">
@@ -363,7 +302,7 @@ def main():
         """, unsafe_allow_html=True)
     
     with col4:
-        mayer = latest.get('mayer_multiple', 0)
+        mayer = latest.get('mayer_multiple', 1)
         st.markdown(f"""
         <div class="metric-card">
             <h3>📊 Mayer Multiple</h3>
@@ -371,39 +310,38 @@ def main():
         </div>
         """, unsafe_allow_html=True)
     
-    # Fase atual do ciclo
+    # Fase atual
     st.markdown(f"""
     <div class="cycle-phase {phase_key}">
         🎯 <strong>FASE ATUAL:</strong> {phase_name}
-        <br><small>Confiança: {confidence:.0%} | Baseado em confluência de indicadores</small>
     </div>
     """, unsafe_allow_html=True)
     
-    # Gráfico principal de preço
+    # Gráfico principal
     st.subheader("📈 Análise Técnica do Bitcoin")
     
     fig_main = make_subplots(
         rows=2, cols=1,
-        subplot_titles=('Preço com Médias Móveis e Pi Cycle', 'Volume de Negociação'),
+        subplot_titles=('Preço com Médias Móveis e Pi Cycle', 'Volume'),
         vertical_spacing=0.1,
         row_heights=[0.8, 0.2]
     )
     
-    # Preço e médias móveis
+    # Preço e médias
     fig_main.add_trace(
-        go.Scatter(x=df.index, y=df['Close'], name='Preço BTC', 
+        go.Scatter(x=df.index, y=df['Close'], name='BTC', 
                   line=dict(color='#F7931A', width=2)),
         row=1, col=1
     )
     
     fig_main.add_trace(
-        go.Scatter(x=df.index, y=df['MA_111'], name='MA 111d', 
+        go.Scatter(x=df.index, y=df['MA_111'], name='MA 111', 
                   line=dict(color='#2196F3', width=1)),
         row=1, col=1
     )
     
     fig_main.add_trace(
-        go.Scatter(x=df.index, y=df['MA_350_x2'], name='MA 350d × 2 (Pi Cycle)', 
+        go.Scatter(x=df.index, y=df['MA_350_x2'], name='MA 350×2 (Pi Cycle)', 
                   line=dict(color='#F44336', width=1, dash='dot')),
         row=1, col=1
     )
@@ -415,75 +353,79 @@ def main():
         row=2, col=1
     )
     
-    # Marcar halvings
+    # Halvings
     if show_halvings:
-        for name, date in analyzer.halving_dates.items():
+        halvings = {
+            '4º Halving': datetime(2024, 4, 20),
+            '3º Halving': datetime(2020, 5, 11),
+            '2º Halving': datetime(2016, 7, 9)
+        }
+        
+        for name, date in halvings.items():
             if df.index[0] <= date <= df.index[-1]:
                 fig_main.add_vline(
                     x=date, line_dash="dash", line_color="purple",
-                    annotation_text=name, annotation_position="top"
+                    annotation_text=name
                 )
     
-    fig_main.update_layout(
-        height=600,
-        showlegend=True,
-        hovermode='x unified',
-        title_text="Análise Técnica Completa do Bitcoin"
-    )
-    
-    fig_main.update_yaxes(type="log", row=1, col=1, title_text="Preço (USD)")
+    fig_main.update_layout(height=600, showlegend=True, hovermode='x unified')
+    fig_main.update_yaxes(type="log", title_text="Preço (USD)", row=1, col=1)
     fig_main.update_yaxes(title_text="Volume", row=2, col=1)
     
     st.plotly_chart(fig_main, use_container_width=True)
     
-    # Indicadores de ciclo
-    st.subheader("🎯 Indicadores de Ciclo On-Chain")
+    # Indicadores
+    st.subheader("🎯 Indicadores de Ciclo")
     
-    # Criar subgráficos para indicadores
-    fig_indicators = make_subplots(
-        rows=4, cols=1,
-        subplot_titles=('MVRV Z-Score', 'Puell Multiple', 'RHODL Ratio', 'Reserve Risk'),
-        vertical_spacing=0.08
-    )
+    col1, col2 = st.columns(2)
     
-    # MVRV Z-Score
-    fig_indicators.add_trace(
-        go.Scatter(x=df.index, y=df['mvrv_zscore'], name='MVRV Z-Score',
-                  line=dict(color='#4CAF50')),
-        row=1, col=1
-    )
-    fig_indicators.add_hline(y=6, line_dash="dash", line_color="red", 
-                           annotation_text="Zona de Risco", row=1, col=1)
-    fig_indicators.add_hline(y=-0.5, line_dash="dash", line_color="green", 
-                           annotation_text="Zona de Oportunidade", row=1, col=1)
+    with col1:
+        # MVRV Z-Score
+        fig_mvrv = go.Figure()
+        fig_mvrv.add_trace(go.Scatter(x=df.index, y=df['mvrv_zscore'], 
+                                     name='MVRV Z-Score', line=dict(color='#4CAF50')))
+        fig_mvrv.add_hline(y=6, line_dash="dash", line_color="red", 
+                          annotation_text="Zona de Risco")
+        fig_mvrv.add_hline(y=-0.5, line_dash="dash", line_color="green", 
+                          annotation_text="Oportunidade")
+        fig_mvrv.update_layout(title="MVRV Z-Score", height=300)
+        st.plotly_chart(fig_mvrv, use_container_width=True)
+        
+        # Puell Multiple
+        fig_puell = go.Figure()
+        fig_puell.add_trace(go.Scatter(x=df.index, y=df['puell_multiple'], 
+                                      name='Puell Multiple', line=dict(color='#9C27B0')))
+        fig_puell.add_hline(y=4, line_dash="dash", line_color="red", 
+                           annotation_text="Topo Histórico")
+        fig_puell.update_layout(title="Puell Multiple", height=300)
+        st.plotly_chart(fig_puell, use_container_width=True)
     
-    # Puell Multiple
-    fig_indicators.add_trace(
-        go.Scatter(x=df.index, y=df['puell_multiple'], name='Puell Multiple',
-                  line=dict(color='#9C27B0')),
-        row=2, col=1
-    )
-    fig_indicators.add_hline(y=4, line_dash="dash", line_color="red", 
-                           annotation_text="Topo Histórico", row=2, col=1)
+    with col2:
+        # Pi Cycle
+        fig_pi = go.Figure()
+        fig_pi.add_trace(go.Scatter(x=df.index, y=df['MA_111'], name='MA 111'))
+        fig_pi.add_trace(go.Scatter(x=df.index, y=df['MA_350_x2'], name='MA 350×2'))
+        
+        # Sinalizar cruzamentos
+        crossovers = df[df['pi_cycle_signal']]
+        if not crossovers.empty:
+            fig_pi.add_trace(go.Scatter(x=crossovers.index, y=crossovers['MA_111'],
+                                       mode='markers', name='Pi Cycle Signal',
+                                       marker=dict(color='red', size=8)))
+        
+        fig_pi.update_layout(title="Pi Cycle Top Indicator", height=300)
+        st.plotly_chart(fig_pi, use_container_width=True)
+        
+        # Mayer Multiple
+        fig_mayer = go.Figure()
+        fig_mayer.add_trace(go.Scatter(x=df.index, y=df['mayer_multiple'], 
+                                      name='Mayer Multiple', line=dict(color='#FF5722')))
+        fig_mayer.add_hline(y=2.4, line_dash="dash", line_color="orange", 
+                           annotation_text="Zona de Atenção")
+        fig_mayer.update_layout(title="Mayer Multiple", height=300)
+        st.plotly_chart(fig_mayer, use_container_width=True)
     
-    # RHODL Ratio
-    fig_indicators.add_trace(
-        go.Scatter(x=df.index, y=df['rhodl_ratio'], name='RHODL Ratio',
-                  line=dict(color='#FF5722')),
-        row=3, col=1
-    )
-    
-    # Reserve Risk
-    fig_indicators.add_trace(
-        go.Scatter(x=df.index, y=df['reserve_risk'], name='Reserve Risk',
-                  line=dict(color='#795548')),
-        row=4, col=1
-    )
-    
-    fig_indicators.update_layout(height=800, showlegend=False)
-    st.plotly_chart(fig_indicators, use_container_width=True)
-    
-    # Painel de status dos indicadores
+    # Status dos indicadores
     st.subheader("📊 Status Atual dos Indicadores")
     
     col1, col2, col3 = st.columns(3)
@@ -491,25 +433,24 @@ def main():
     with col1:
         mvrv_current = latest.get('mvrv_zscore', 0)
         if pd.isna(mvrv_current):
-            mvrv_status = "N/A"
-            mvrv_class = "indicator-warning"
+            status = "N/A"
+            color_class = "indicator-warning"
         elif mvrv_current < 0:
-            mvrv_status = "OPORTUNIDADE"
-            mvrv_class = "indicator-safe"
+            status = "OPORTUNIDADE"
+            color_class = "indicator-safe"
         elif mvrv_current < 3:
-            mvrv_status = "NEUTRO"
-            mvrv_class = "indicator-warning"
+            status = "NEUTRO"
+            color_class = "indicator-warning"
         else:
-            mvrv_status = "RISCO"
-            mvrv_class = "indicator-danger"
+            status = "RISCO"
+            color_class = "indicator-danger"
         
         st.markdown(f"""
-        **MVRV Z-Score:** <span class="{mvrv_class}">{mvrv_current:.2f} - {mvrv_status}</span>
+        **MVRV Z-Score:** <span class="{color_class}">{mvrv_current:.2f} - {status}</span>
         
-        - < 0: Zona de oportunidade histórica
-        - 0-3: Zona neutra de acumulação
-        - 3-6: Zona de atenção
-        - > 6: Zona de risco de topo
+        - < 0: Zona de oportunidade
+        - 0-3: Zona neutra
+        - > 3: Zona de risco
         """, unsafe_allow_html=True)
     
     with col2:
@@ -520,9 +461,9 @@ def main():
         st.markdown(f"""
         **Pi Cycle Top:** <span class="{pi_class}">{pi_status}</span>
         
-        - Ativo: MA 111 > MA 350 × 2
-        - Sinal histórico de topo de ciclo
-        - Precisão: ~3 dias do pico real
+        - Sinal histórico de topo
+        - MA 111 > MA 350 × 2
+        - Precisão: ~3 dias do pico
         """, unsafe_allow_html=True)
     
     with col3:
@@ -530,167 +471,85 @@ def main():
         if pd.isna(puell_current):
             puell_status = "N/A"
             puell_class = "indicator-warning"
+        elif puell_current > 4:
+            puell_status = "DISTRIBUIÇÃO"
+            puell_class = "indicator-danger"
         elif puell_current < 0.5:
             puell_status = "ACUMULAÇÃO"
             puell_class = "indicator-safe"
-        elif puell_current < 4:
+        else:
             puell_status = "NORMAL"
             puell_class = "indicator-warning"
-        else:
-            puell_status = "DISTRIBUIÇÃO"
-            puell_class = "indicator-danger"
         
         st.markdown(f"""
         **Puell Multiple:** <span class="{puell_class}">{puell_current:.2f} - {puell_status}</span>
         
-        - < 0.5: Zona de acumulação
-        - 0.5-4: Zona normal
-        - > 4: Zona de distribuição
+        - < 0.5: Acumulação
+        - 0.5-4: Normal
+        - > 4: Distribuição
         """, unsafe_allow_html=True)
     
-    # Tabela histórica dos ciclos
-    if show_explanations:
-        st.subheader("📚 Dados Históricos dos Ciclos do Bitcoin")
-        
-        cycles_data = {
-            'Ciclo': ['1º (2009-2012)', '2º (2012-2016)', '3º (2016-2020)', '4º (2020-2024)', 'Atual (2024-?)'],
-            'Data do Halving': ['28/11/2012', '09/07/2016', '11/05/2020', '20/04/2024', '~2028'],
-            'Preço no Halving': ['$12', '$650', '$8.600', '$64.000', f'${current_price:,.0f}'],
-            'Pico Máximo': ['$1.163', '$19.783', '$68.789', 'Em progresso', 'TBD'],
-            'Ganho Total': ['9.592%', '3.043%', '800%', 'TBD', 'TBD'],
-            'Duração (meses)': ['12', '17', '18', 'TBD', 'TBD'],
-            'Correção Máxima': ['-87%', '-84%', '-77%', 'TBD', 'TBD']
-        }
-        
-        df_cycles = pd.DataFrame(cycles_data)
-        st.dataframe(df_cycles, use_container_width=True)
-    
-    # Projeções para o ciclo atual
-    st.subheader("🔮 Projeções para o Ciclo Atual (2024-2026)")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("""
-        ### 📊 Cenários de Preço
-        
-        **🟢 Conservador (30% probabilidade)**
-        - **Pico:** $120.000 - $160.000
-        - **Timeline:** Q3-Q4 2025
-        - **Múltiplo:** 8-10x desde fundo 2022
-        
-        **🟡 Base (55% probabilidade)**
-        - **Pico:** $180.000 - $220.000
-        - **Timeline:** Q4 2025 - Q1 2026
-        - **Múltiplo:** 12-14x desde fundo 2022
-        
-        **🟠 Otimista (15% probabilidade)**
-        - **Pico:** $250.000 - $350.000
-        - **Timeline:** Q2-Q4 2026
-        - **Múltiplo:** 16-22x desde fundo 2022
-        """)
-    
-    with col2:
-        st.markdown("""
-        ### ⚠️ Fatores de Risco
-        
-        **🔴 Limitantes:**
-        - Regulamentação adversa
-        - Crise macroeconômica global
-        - Reversão de fluxos de ETF
-        - Lei dos retornos decrescentes
-        
-        **🟢 Catalisadores:**
-        - Adoção institucional via ETFs
-        - Escassez pós-halving
-        - Políticas monetárias expansivas
-        - Adoção corporativa crescente
-        
-        **📈 Sinais de Topo a Monitorar:**
-        - Pi Cycle Top ativo
-        - MVRV Z-Score > 7
-        - Puell Multiple > 4
-        - Euforia midiática extrema
-        """)
-    
-    # Estratégia recomendada baseada na fase
+    # Estratégia recomendada
     st.subheader("💡 Estratégia Recomendada")
     
-    strategy_recommendations = {
-        'accumulation': {
-            'text': """
-            🟢 **FASE DE ACUMULAÇÃO - ESTRATÉGIA AGRESSIVA**
-            - **DCA:** Implemente Dollar-Cost Averaging semanal/mensal
-            - **Compras Extras:** Aproveite quedas >15% para aportes adicionais
-            - **Alocação:** Mantenha 80-90% do capital destinado ao Bitcoin
-            - **Horizonte:** 18-24 meses até próxima fase
-            - **Risco:** Baixo a moderado para horizontes longos
-            """,
-            'color': '#E8F5E8'
-        },
-        'bull-run': {
-            'text': """
-            🟡 **BULL RUN - ESTRATÉGIA DE MANUTENÇÃO**
-            - **DCA:** Reduza frequência mas mantenha consistência
-            - **Realizações:** Prepare-se para vendas parciais (10-20%)
-            - **Monitoramento:** Acompanhe indicadores de topo diariamente
-            - **Alocação:** Mantenha posição core mas reduza exposição gradualmente
-            - **Risco:** Moderado, volatilidade crescente
-            """,
-            'color': '#FFF3E0'
-        },
-        'euphoria': {
-            'text': """
-            🔴 **EUFORIA - ESTRATÉGIA DE REALIZAÇÃO**
-            - **Vendas:** Realize 30-50% das posições imediatamente
-            - **Monitoramento:** Acompanhe Pi Cycle Top diariamente
-            - **Preparação:** Organize-se para bear market iminente
-            - **Posição Final:** Mantenha apenas core de longo prazo (20-30%)
-            - **Risco:** Alto, correção iminente
-            """,
-            'color': '#FFEBEE'
-        },
-        'bear-market': {
-            'text': """
-            🔵 **BEAR MARKET - ESTRATÉGIA DE PACIÊNCIA**
-            - **Acumulação:** Retome DCA gradualmente
-            - **Oportunidades:** Aproveite quedas >20% para compras
-            - **Paciência:** Prepare-se para 12-18 meses de lateralização
-            - **Educação:** Use o tempo para estudar e se preparar
-            - **Risco:** Alto no curto prazo, baixo no longo prazo
-            """,
-            'color': '#E3F2FD'
-        }
+    strategies = {
+        'accumulation': """
+        🟢 **ACUMULAÇÃO - COMPRAR AGRESSIVAMENTE**
+        - Implemente DCA semanal/mensal
+        - Aproveite quedas >15% para aportes extras
+        - Mantenha 80-90% do capital alocado
+        - Horizonte: 18-24 meses
+        """,
+        'bull-run': """
+        🟡 **BULL RUN - MANTER POSIÇÕES**
+        - Reduza DCA mas mantenha consistência
+        - Prepare realizações parciais (10-20%)
+        - Monitore indicadores de topo diariamente
+        - Risco moderado, volatilidade crescente
+        """,
+        'euphoria': """
+        🔴 **EUFORIA - REALIZAR LUCROS**
+        - Venda 30-50% das posições imediatamente
+        - Monitore Pi Cycle Top diariamente
+        - Prepare-se para bear market iminente
+        - Mantenha apenas core de longo prazo (20-30%)
+        """,
+        'bear-market': """
+        🔵 **BEAR MARKET - PACIÊNCIA**
+        - Retome DCA gradualmente
+        - Aproveite quedas >20% para compras
+        - 12-18 meses de lateralização esperada
+        - Use tempo para estudar e se preparar
+        """
     }
     
-    current_strategy = strategy_recommendations[phase_key]
+    current_strategy = strategies.get(phase_key, strategies['bull-run'])
+    st.markdown(current_strategy)
     
-    st.markdown(f"""
-    <div style="background-color: {current_strategy['color']}; padding: 1.5rem; border-radius: 15px; margin: 1rem 0; border-left: 5px solid #2196F3;">
-        {current_strategy['text']}
-    </div>
-    """, unsafe_allow_html=True)
+    # Tabela de ciclos históricos
+    st.subheader("📚 Dados Históricos dos Ciclos")
     
-    # Footer com disclaimers
+    cycles_data = {
+        'Ciclo': ['1º (2009-2012)', '2º (2012-2016)', '3º (2016-2020)', '4º (2020-2024)', 'Atual (2024-?)'],
+        'Data do Halving': ['28/11/2012', '09/07/2016', '11/05/2020', '20/04/2024', '~2028'],
+        'Preço no Halving': ['$12', '$650', '$8.600', '$64.000', f'${current_price:,.0f}'],
+        'Pico Máximo': ['$1.163', '$19.783', '$68.789', 'Em progresso', 'TBD'],
+        'Ganho Total': ['9.592%', '3.043%', '800%', 'TBD', 'TBD'],
+        'Duração (meses)': ['12', '17', '18', 'TBD', 'TBD']
+    }
+    
+    df_cycles = pd.DataFrame(cycles_data)
+    st.dataframe(df_cycles, use_container_width=True)
+    
+    # Footer
     st.markdown("---")
-    st.markdown("""
-    ### ⚠️ Disclaimers Importantes
+    st.markdown(f"""
+    **⚠️ Disclaimer:** Dashboard educacional. Não constitui consultoria financeira. 
+    Invista apenas o que pode perder.
     
-    **Educacional:** Este dashboard é puramente educacional e não constitui consultoria financeira.
+    **Última atualização:** {datetime.now().strftime("%d/%m/%Y às %H:%M:%S")}
     
-    **Riscos:** Criptomoedas são investimentos de alto risco com volatilidade extrema.
-    
-    **DYOR:** Sempre faça sua própria pesquisa antes de tomar decisões de investimento.
-    
-    **Dados:** Indicadores são aproximações baseadas em dados públicos. Para análises profissionais, use APIs especializadas.
-    
-    **Responsabilidade:** Invista apenas o que pode perder completamente.
-    
-    ---
-    
-    **Última atualização:** """ + datetime.now().strftime("%d/%m/%Y às %H:%M:%S") + """
-    
-    **Fonte dos dados:** Yahoo Finance (preços) | Indicadores calculados internamente
+    **Fonte:** {'Yahoo Finance (dados reais)' if is_real_data else 'Simulação baseada em padrões históricos'}
     """)
 
 if __name__ == "__main__":
