@@ -7,15 +7,15 @@ import yfinance as yf
 from datetime import datetime, timedelta
 import ta
 
-# Page configuration
+# Configuração da página
 st.set_page_config(
-    page_title="Bitcoin Technical Analysis Dashboard",
+    page_title="Painel de Análise Técnica do Bitcoin",
     page_icon="₿",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS with improved colors
+# CSS personalizado com cores melhoradas
 st.markdown("""
     <style>
     .main {
@@ -190,66 +190,66 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# Title with gradient effect
+# Título com efeito gradiente
 st.markdown("""
     <h1 style='text-align: center; font-size: 48px; margin-bottom: 10px;'>
-        ₿ Bitcoin Technical Analysis Dashboard
+        ₿ Painel de Análise Técnica do Bitcoin
     </h1>
     """, unsafe_allow_html=True)
 st.markdown("---")
 
-# Sidebar with improved styling
+# Barra lateral com estilo melhorado
 with st.sidebar:
-    st.markdown("### ⚙️ Settings")
+    st.markdown("### ⚙️ Configurações")
     
-    # Time period selection
+    # Seleção de período
     period_options = {
-        "1 Month": "1mo",
-        "3 Months": "3mo",
-        "6 Months": "6mo",
-        "1 Year": "1y",
-        "2 Years": "2y",
-        "5 Years": "5y",
-        "Max": "max"
+        "1 Mês": "1mo",
+        "3 Meses": "3mo",
+        "6 Meses": "6mo",
+        "1 Ano": "1y",
+        "2 Anos": "2y",
+        "5 Anos": "5y",
+        "Máximo": "max"
     }
     
     selected_period = st.selectbox(
-        "📅 Select Time Period",
+        "📅 Selecionar Período",
         options=list(period_options.keys()),
         index=3
     )
     
-    # Interval selection
+    # Seleção de intervalo
     interval_options = {
-        "1 Day": "1d",
-        "1 Week": "1wk",
-        "1 Month": "1mo"
+        "1 Dia": "1d",
+        "1 Semana": "1wk",
+        "1 Mês": "1mo"
     }
     
     selected_interval = st.selectbox(
-        "⏱️ Select Interval",
+        "⏱️ Selecionar Intervalo",
         options=list(interval_options.keys()),
         index=0
     )
     
-    # Technical indicators
+    # Indicadores técnicos
     st.markdown("---")
-    st.markdown("### 📊 Technical Indicators")
-    show_sma = st.checkbox("Simple Moving Average (SMA)", value=True)
-    show_ema = st.checkbox("Exponential Moving Average (EMA)", value=True)
-    show_bb = st.checkbox("Bollinger Bands", value=True)
+    st.markdown("### 📊 Indicadores Técnicos")
+    show_sma = st.checkbox("Média Móvel Simples (SMA)", value=True)
+    show_ema = st.checkbox("Média Móvel Exponencial (EMA)", value=True)
+    show_bb = st.checkbox("Bandas de Bollinger", value=True)
     show_rsi = st.checkbox("RSI", value=True)
     show_macd = st.checkbox("MACD", value=True)
     show_volume = st.checkbox("Volume", value=True)
     
-    # Moving average periods
+    # Períodos das médias móveis
     if show_sma or show_ema:
         st.markdown("---")
-        st.markdown("### 📈 MA Periods")
-        ma_short = st.slider("Short Period", 5, 50, 20)
-        ma_long = st.slider("Long Period", 50, 200, 50)
+        st.markdown("### 📈 Períodos das MAs")
+        ma_short = st.slider("Período Curto", 5, 50, 20)
+        ma_long = st.slider("Período Longo", 50, 200, 50)
 
-# Function to fetch Bitcoin data
+# Função para buscar dados do Bitcoin
 @st.cache_data(ttl=300)
 def get_bitcoin_data(period, interval):
     try:
@@ -257,23 +257,23 @@ def get_bitcoin_data(period, interval):
         df = btc.history(period=period, interval=interval)
         return df
     except Exception as e:
-        st.error(f"Error fetching data: {str(e)}")
+        st.error(f"Erro ao buscar dados: {str(e)}")
         return None
 
-# Function to calculate technical indicators
+# Função para calcular indicadores técnicos
 def calculate_indicators(df, ma_short=20, ma_long=50):
     if df is None or df.empty:
         return df
     
-    # Simple Moving Averages
+    # Médias Móveis Simples
     df['SMA_short'] = ta.trend.sma_indicator(df['Close'], window=ma_short)
     df['SMA_long'] = ta.trend.sma_indicator(df['Close'], window=ma_long)
     
-    # Exponential Moving Averages
+    # Médias Móveis Exponenciais
     df['EMA_short'] = ta.trend.ema_indicator(df['Close'], window=ma_short)
     df['EMA_long'] = ta.trend.ema_indicator(df['Close'], window=ma_long)
     
-    # Bollinger Bands
+    # Bandas de Bollinger
     bollinger = ta.volatility.BollingerBands(df['Close'])
     df['BB_upper'] = bollinger.bollinger_hband()
     df['BB_middle'] = bollinger.bollinger_mavg()
@@ -288,12 +288,12 @@ def calculate_indicators(df, ma_short=20, ma_long=50):
     df['MACD_signal'] = macd.macd_signal()
     df['MACD_diff'] = macd.macd_diff()
     
-    # Volume indicators
+    # Indicadores de volume
     df['Volume_SMA'] = df['Volume'].rolling(window=20).mean()
     
     return df
 
-# Function to generate market analysis
+# Função para gerar análise de mercado
 def generate_market_analysis(df, ma_short, ma_long):
     if df is None or df.empty:
         return None
@@ -308,7 +308,7 @@ def generate_market_analysis(df, ma_short, ma_long):
         'signals': []
     }
     
-    # Get latest values
+    # Obter valores mais recentes
     current_price = df['Close'].iloc[-1]
     rsi = df['RSI'].iloc[-1] if not pd.isna(df['RSI'].iloc[-1]) else 50
     macd = df['MACD'].iloc[-1] if not pd.isna(df['MACD'].iloc[-1]) else 0
@@ -318,87 +318,87 @@ def generate_market_analysis(df, ma_short, ma_long):
     bb_upper = df['BB_upper'].iloc[-1] if not pd.isna(df['BB_upper'].iloc[-1]) else current_price * 1.02
     bb_lower = df['BB_lower'].iloc[-1] if not pd.isna(df['BB_lower'].iloc[-1]) else current_price * 0.98
     
-    # Calculate price changes
+    # Calcular mudanças de preço
     price_change_7d = ((current_price - df['Close'].iloc[-7]) / df['Close'].iloc[-7] * 100) if len(df) >= 7 else 0
     price_change_30d = ((current_price - df['Close'].iloc[-30]) / df['Close'].iloc[-30] * 100) if len(df) >= 30 else 0
     
-    # Trend Analysis
+    # Análise de Tendência
     if sma_short > sma_long:
         if price_change_7d > 5:
-            analysis['trend'] = "Strong Bullish"
-            analysis['signals'].append("🚀 Strong uptrend confirmed")
+            analysis['trend'] = "Fortemente Altista"
+            analysis['signals'].append("🚀 Forte tendência de alta confirmada")
         else:
-            analysis['trend'] = "Bullish"
-            analysis['signals'].append("📈 Uptrend in progress")
+            analysis['trend'] = "Altista"
+            analysis['signals'].append("📈 Tendência de alta em progresso")
     else:
         if price_change_7d < -5:
-            analysis['trend'] = "Strong Bearish"
-            analysis['signals'].append("⚠️ Strong downtrend detected")
+            analysis['trend'] = "Fortemente Baixista"
+            analysis['signals'].append("⚠️ Forte tendência de baixa detectada")
         else:
-            analysis['trend'] = "Bearish"
-            analysis['signals'].append("📉 Downtrend in progress")
+            analysis['trend'] = "Baixista"
+            analysis['signals'].append("📉 Tendência de baixa em progresso")
     
-    # Momentum Analysis
+    # Análise de Momentum
     if rsi > 70:
-        analysis['momentum'] = "Overbought"
-        analysis['signals'].append("⚠️ RSI indicates overbought conditions - potential correction ahead")
+        analysis['momentum'] = "Sobrecomprado"
+        analysis['signals'].append("⚠️ RSI indica condições de sobrecompra - possível correção à frente")
     elif rsi < 30:
-        analysis['momentum'] = "Oversold"
-        analysis['signals'].append("💡 RSI indicates oversold conditions - potential bounce expected")
+        analysis['momentum'] = "Sobrevendido"
+        analysis['signals'].append("💡 RSI indica condições de sobrevenda - possível recuperação esperada")
     elif 45 <= rsi <= 55:
-        analysis['momentum'] = "Neutral"
-        analysis['signals'].append("⚖️ Momentum is neutral - waiting for direction")
+        analysis['momentum'] = "Neutro"
+        analysis['signals'].append("⚖️ Momentum está neutro - aguardando direção")
     elif rsi > 55:
-        analysis['momentum'] = "Bullish"
-        analysis['signals'].append("✅ Positive momentum building")
+        analysis['momentum'] = "Altista"
+        analysis['signals'].append("✅ Momentum positivo em construção")
     else:
-        analysis['momentum'] = "Bearish"
-        analysis['signals'].append("⚠️ Negative momentum present")
+        analysis['momentum'] = "Baixista"
+        analysis['signals'].append("⚠️ Momentum negativo presente")
     
-    # MACD Analysis
+    # Análise MACD
     if macd > macd_signal:
         if macd > 0:
-            analysis['signals'].append("🟢 MACD bullish crossover - buy signal active")
+            analysis['signals'].append("🟢 MACD cruzamento altista - sinal de compra ativo")
         else:
-            analysis['signals'].append("🟡 MACD turning bullish - early buy signal")
+            analysis['signals'].append("🟡 MACD virando altista - sinal de compra inicial")
     else:
         if macd < 0:
-            analysis['signals'].append("🔴 MACD bearish crossover - sell signal active")
+            analysis['signals'].append("🔴 MACD cruzamento baixista - sinal de venda ativo")
         else:
-            analysis['signals'].append("🟠 MACD turning bearish - caution advised")
+            analysis['signals'].append("🟠 MACD virando baixista - cautela aconselhada")
     
-    # Volatility Analysis
+    # Análise de Volatilidade
     bb_width = ((bb_upper - bb_lower) / current_price) * 100
     if bb_width > 10:
-        analysis['volatility'] = "High"
-        analysis['signals'].append("🌊 High volatility detected - expect large price swings")
+        analysis['volatility'] = "Alta"
+        analysis['signals'].append("🌊 Alta volatilidade detectada - espere grandes oscilações de preço")
     elif bb_width < 5:
-        analysis['volatility'] = "Low"
-        analysis['signals'].append("😴 Low volatility - potential breakout coming")
+        analysis['volatility'] = "Baixa"
+        analysis['signals'].append("😴 Baixa volatilidade - possível rompimento chegando")
     else:
-        analysis['volatility'] = "Moderate"
+        analysis['volatility'] = "Moderada"
     
-    # Bollinger Bands position
+    # Posição nas Bandas de Bollinger
     if current_price > bb_upper:
-        analysis['signals'].append("⚠️ Price above upper Bollinger Band - overextended")
+        analysis['signals'].append("⚠️ Preço acima da Banda de Bollinger superior - sobreestendido")
     elif current_price < bb_lower:
-        analysis['signals'].append("💡 Price below lower Bollinger Band - potential reversal")
+        analysis['signals'].append("💡 Preço abaixo da Banda de Bollinger inferior - possível reversão")
     
-    # Volume Analysis
+    # Análise de Volume
     avg_volume = df['Volume'].tail(20).mean()
     current_volume = df['Volume'].iloc[-1]
-    volume_ratio = current_volume / avg_volume
+    volume_ratio = current_volume / avg_volume if avg_volume > 0 else 1
     
     if volume_ratio > 1.5:
-        analysis['volume'] = "High"
-        analysis['signals'].append("📊 Volume surge detected - strong conviction in current move")
+        analysis['volume'] = "Alto"
+        analysis['signals'].append("📊 Aumento de volume detectado - forte convicção no movimento atual")
     elif volume_ratio < 0.5:
-        analysis['volume'] = "Low"
-        analysis['signals'].append("📉 Low volume - lack of conviction, trend may be weak")
+        analysis['volume'] = "Baixo"
+        analysis['signals'].append("📉 Volume baixo - falta de convicção, tendência pode ser fraca")
     else:
         analysis['volume'] = "Normal"
     
-    # Key Levels
+    # Níveis Chave
     recent_high = df['High'].tail(30).max()
     recent_low = df['Low'].tail(30).min()
     analysis['key_levels'] = {
@@ -408,7 +408,7 @@ def generate_market_analysis(df, ma_short, ma_long):
         'bb_lower': bb_lower
     }
     
-    # Generate Prediction
+    # Gerar Previsão
     bullish_signals = sum([
         sma_short > sma_long,
         rsi < 70 and rsi > 45,
@@ -418,56 +418,56 @@ def generate_market_analysis(df, ma_short, ma_long):
     ])
     
     if bullish_signals >= 4:
-        analysis['prediction'] = "Strong Buy"
-        analysis['outlook'] = f"Based on technical indicators, Bitcoin shows strong bullish momentum. The price is currently at ${current_price:,.2f} with multiple indicators suggesting upward movement. Key resistance is at ${recent_high:,.2f}. If this level is broken, we could see further gains toward ${recent_high * 1.05:,.2f}."
+        analysis['prediction'] = "Forte Compra"
+        analysis['outlook'] = f"Com base nos indicadores técnicos, o Bitcoin mostra forte momentum altista. O preço está atualmente em ${current_price:,.2f} com múltiplos indicadores sugerindo movimento ascendente. A resistência chave está em ${recent_high:,.2f}. Se este nível for rompido, podemos ver ganhos adicionais em direção a ${recent_high * 1.05:,.2f}."
     elif bullish_signals >= 3:
-        analysis['prediction'] = "Buy"
-        analysis['outlook'] = f"Bitcoin is showing positive signals with the current price at ${current_price:,.2f}. The trend is favorable, though some caution is warranted. Watch for a break above ${recent_high:,.2f} for confirmation of continued uptrend."
+        analysis['prediction'] = "Compra"
+        analysis['outlook'] = f"O Bitcoin está mostrando sinais positivos com o preço atual em ${current_price:,.2f}. A tendência é favorável, embora alguma cautela seja justificada. Observe o rompimento acima de ${recent_high:,.2f} para confirmação da continuação da tendência de alta."
     elif bullish_signals == 2:
-        analysis['prediction'] = "Hold"
-        analysis['outlook'] = f"Bitcoin is in a consolidation phase at ${current_price:,.2f}. Mixed signals suggest waiting for clearer direction. Key levels to watch: support at ${recent_low:,.2f} and resistance at ${recent_high:,.2f}."
+        analysis['prediction'] = "Manter"
+        analysis['outlook'] = f"O Bitcoin está em fase de consolidação em ${current_price:,.2f}. Sinais mistos sugerem aguardar por direção mais clara. Níveis chave a observar: suporte em ${recent_low:,.2f} e resistência em ${recent_high:,.2f}."
     elif bullish_signals == 1:
-        analysis['prediction'] = "Sell"
-        analysis['outlook'] = f"Technical indicators suggest weakness in Bitcoin's price action at ${current_price:,.2f}. Consider reducing exposure. Critical support at ${recent_low:,.2f} must hold to prevent further decline."
+        analysis['prediction'] = "Venda"
+        analysis['outlook'] = f"Indicadores técnicos sugerem fraqueza na ação de preço do Bitcoin em ${current_price:,.2f}. Considere reduzir exposição. O suporte crítico em ${recent_low:,.2f} deve se manter para prevenir declínio adicional."
     else:
-        analysis['prediction'] = "Strong Sell"
-        analysis['outlook'] = f"Multiple bearish signals detected with Bitcoin at ${current_price:,.2f}. Downside risk is elevated. If support at ${recent_low:,.2f} breaks, expect further decline toward ${recent_low * 0.95:,.2f}."
+        analysis['prediction'] = "Forte Venda"
+        analysis['outlook'] = f"Múltiplos sinais baixistas detectados com Bitcoin em ${current_price:,.2f}. O risco de queda está elevado. Se o suporte em ${recent_low:,.2f} for rompido, espere declínio adicional em direção a ${recent_low * 0.95:,.2f}."
     
     return analysis
 
-# Fetch data
-with st.spinner("🔄 Fetching Bitcoin data..."):
+# Buscar dados
+with st.spinner("🔄 Buscando dados do Bitcoin..."):
     df = get_bitcoin_data(period_options[selected_period], interval_options[selected_interval])
 
 if df is not None and not df.empty:
-    # Calculate indicators
+    # Calcular indicadores
     df = calculate_indicators(df, ma_short, ma_long)
     
-    # Current price and metrics
+    # Preço atual e métricas
     current_price = df['Close'].iloc[-1]
     prev_price = df['Close'].iloc[-2]
     price_change = current_price - prev_price
     price_change_pct = (price_change / prev_price) * 100
     
-    # Display metrics with improved styling
+    # Exibir métricas com estilo melhorado
     col1, col2, col3, col4, col5 = st.columns(5)
     
     with col1:
         st.metric(
-            "💰 Current Price",
+            "💰 Preço Atual",
             f"${current_price:,.2f}",
             f"{price_change_pct:+.2f}%"
         )
     
     with col2:
         st.metric(
-            "📈 24h High",
+            "📈 Máxima 24h",
             f"${df['High'].iloc[-1]:,.2f}"
         )
     
     with col3:
         st.metric(
-            "📉 24h Low",
+            "📉 Mínima 24h",
             f"${df['Low'].iloc[-1]:,.2f}"
         )
     
@@ -481,7 +481,7 @@ if df is not None and not df.empty:
     with col5:
         if not pd.isna(df['RSI'].iloc[-1]):
             rsi_value = df['RSI'].iloc[-1]
-            rsi_status = "Overbought" if rsi_value > 70 else "Oversold" if rsi_value < 30 else "Neutral"
+            rsi_status = "Sobrecomprado" if rsi_value > 70 else "Sobrevendido" if rsi_value < 30 else "Neutro"
             st.metric(
                 "🎯 RSI",
                 f"{rsi_value:.2f}",
@@ -490,37 +490,37 @@ if df is not None and not df.empty:
     
     st.markdown("---")
     
-    # Generate Market Analysis
+    # Gerar Análise de Mercado
     market_analysis = generate_market_analysis(df, ma_short, ma_long)
     
-    # Display AI Analysis Section
+    # Exibir Seção de Análise IA
     if market_analysis:
-        st.markdown("## 🤖 AI-Powered Market Analysis")
+        st.markdown("## 🤖 Análise de Mercado com IA")
         
-        # Main Analysis Box
+        # Caixa de Análise Principal
         st.markdown(f"""
         <div class="analysis-box">
             <div class="analysis-header">
-                🎯 Current Market Assessment
+                🎯 Avaliação Atual do Mercado
             </div>
             <div class="analysis-content">
-                <p><strong>Overall Outlook:</strong> {market_analysis['prediction']}</p>
+                <p><strong>Perspectiva Geral:</strong> {market_analysis['prediction']}</p>
                 <p>{market_analysis['outlook']}</p>
             </div>
         </div>
         """, unsafe_allow_html=True)
         
-        # Detailed Predictions
+        # Previsões Detalhadas
         col1, col2 = st.columns(2)
         
         with col1:
             st.markdown(f"""
             <div class="prediction-card">
-                <div class="prediction-title">📊 Technical Summary</div>
+                <div class="prediction-title">📊 Resumo Técnico</div>
                 <div class="prediction-text">
-                    <p><strong>Trend:</strong> {market_analysis['trend']}</p>
+                    <p><strong>Tendência:</strong> {market_analysis['trend']}</p>
                     <p><strong>Momentum:</strong> {market_analysis['momentum']}</p>
-                    <p><strong>Volatility:</strong> {market_analysis['volatility']}</p>
+                    <p><strong>Volatilidade:</strong> {market_analysis['volatility']}</p>
                     <p><strong>Volume:</strong> {market_analysis['volume']}</p>
                 </div>
             </div>
@@ -529,33 +529,33 @@ if df is not None and not df.empty:
         with col2:
             st.markdown(f"""
             <div class="prediction-card">
-                <div class="prediction-title">🎯 Key Price Levels</div>
+                <div class="prediction-title">🎯 Níveis de Preço Chave</div>
                 <div class="prediction-text">
-                    <p><strong>Resistance:</strong> ${market_analysis['key_levels']['resistance']:,.2f}</p>
-                    <p><strong>Support:</strong> ${market_analysis['key_levels']['support']:,.2f}</p>
-                    <p><strong>BB Upper:</strong> ${market_analysis['key_levels']['bb_upper']:,.2f}</p>
-                    <p><strong>BB Lower:</strong> ${market_analysis['key_levels']['bb_lower']:,.2f}</p>
+                    <p><strong>Resistência:</strong> ${market_analysis['key_levels']['resistance']:,.2f}</p>
+                    <p><strong>Suporte:</strong> ${market_analysis['key_levels']['support']:,.2f}</p>
+                    <p><strong>BB Superior:</strong> ${market_analysis['key_levels']['bb_upper']:,.2f}</p>
+                    <p><strong>BB Inferior:</strong> ${market_analysis['key_levels']['bb_lower']:,.2f}</p>
                 </div>
             </div>
             """, unsafe_allow_html=True)
         
-        # Key Signals
-        st.markdown("### 🔔 Key Trading Signals")
+        # Sinais Chave
+        st.markdown("### 🔔 Sinais de Negociação Chave")
         for signal in market_analysis['signals']:
             st.markdown(f"- {signal}")
         
         st.markdown("---")
     
-    # Create main chart with dark theme
+    # Criar gráfico principal com tema escuro
     fig = make_subplots(
         rows=4, cols=1,
         shared_xaxes=True,
         vertical_spacing=0.03,
         row_heights=[0.5, 0.2, 0.15, 0.15],
-        subplot_titles=('Price Chart', 'Volume', 'RSI', 'MACD')
+        subplot_titles=('Gráfico de Preços', 'Volume', 'RSI', 'MACD')
     )
     
-    # Candlestick chart
+    # Gráfico de velas
     fig.add_trace(
         go.Candlestick(
             x=df.index,
@@ -572,7 +572,7 @@ if df is not None and not df.empty:
         row=1, col=1
     )
     
-    # Add moving averages with better colors
+    # Adicionar médias móveis com cores melhores
     if show_sma:
         fig.add_trace(
             go.Scatter(
@@ -613,13 +613,13 @@ if df is not None and not df.empty:
             row=1, col=1
         )
     
-    # Add Bollinger Bands
+    # Adicionar Bandas de Bollinger
     if show_bb:
         fig.add_trace(
             go.Scatter(
                 x=df.index,
                 y=df['BB_upper'],
-                name='BB Upper',
+                name='BB Superior',
                 line=dict(color='#64748b', width=1),
                 opacity=0.5
             ),
@@ -629,7 +629,7 @@ if df is not None and not df.empty:
             go.Scatter(
                 x=df.index,
                 y=df['BB_lower'],
-                name='BB Lower',
+                name='BB Inferior',
                 line=dict(color='#64748b', width=1),
                 fill='tonexty',
                 fillcolor='rgba(100, 116, 139, 0.1)',
@@ -638,7 +638,7 @@ if df is not None and not df.empty:
             row=1, col=1
         )
     
-    # Volume with gradient colors
+    # Volume com cores gradientes
     if show_volume:
         colors = ['#ef4444' if df['Close'].iloc[i] < df['Open'].iloc[i] else '#22c55e' 
                   for i in range(len(df))]
@@ -653,7 +653,7 @@ if df is not None and not df.empty:
             row=2, col=1
         )
     
-    # RSI with colored zones
+    # RSI com zonas coloridas
     if show_rsi:
         fig.add_trace(
             go.Scatter(
@@ -664,12 +664,12 @@ if df is not None and not df.empty:
             ),
             row=3, col=1
         )
-        # Add overbought/oversold lines
+        # Adicionar linhas de sobrecompra/sobrevenda
         fig.add_hline(y=70, line_dash="dash", line_color="#ef4444", opacity=0.7, row=3, col=1)
         fig.add_hline(y=30, line_dash="dash", line_color="#22c55e", opacity=0.7, row=3, col=1)
         fig.add_hline(y=50, line_dash="dot", line_color="#64748b", opacity=0.5, row=3, col=1)
     
-    # MACD with better colors
+    # MACD com cores melhores
     if show_macd:
         fig.add_trace(
             go.Scatter(
@@ -684,28 +684,28 @@ if df is not None and not df.empty:
             go.Scatter(
                 x=df.index,
                 y=df['MACD_signal'],
-                name='Signal',
+                name='Sinal',
                 line=dict(color='#f59e0b', width=2)
             ),
             row=4, col=1
         )
-        # MACD histogram
+        # Histograma MACD
         colors_macd = ['#22c55e' if val >= 0 else '#ef4444' for val in df['MACD_diff']]
         fig.add_trace(
             go.Bar(
                 x=df.index,
                 y=df['MACD_diff'],
-                name='MACD Histogram',
+                name='Histograma MACD',
                 marker_color=colors_macd,
                 opacity=0.6
             ),
             row=4, col=1
         )
     
-    # Update layout with dark theme
+    # Atualizar layout com tema escuro
     fig.update_layout(
         title={
-            'text': 'Bitcoin Technical Analysis',
+            'text': 'Análise Técnica do Bitcoin',
             'font': {'size': 24, 'color': '#ffffff', 'family': 'Arial Black'}
         },
         xaxis_rangeslider_visible=False,
@@ -723,8 +723,8 @@ if df is not None and not df.empty:
         )
     )
     
-    # Update y-axes labels
-    fig.update_yaxes(title_text="Price (USD)", row=1, col=1, gridcolor='#2d3748')
+    # Atualizar rótulos dos eixos y
+    fig.update_yaxes(title_text="Preço (USD)", row=1, col=1, gridcolor='#2d3748')
     fig.update_yaxes(title_text="Volume", row=2, col=1, gridcolor='#2d3748')
     fig.update_yaxes(title_text="RSI", row=3, col=1, gridcolor='#2d3748')
     fig.update_yaxes(title_text="MACD", row=4, col=1, gridcolor='#2d3748')
@@ -733,90 +733,90 @@ if df is not None and not df.empty:
     
     st.plotly_chart(fig, use_container_width=True)
     
-    # Trading signals with custom styled boxes
+    # Sinais de negociação com caixas estilizadas personalizadas
     st.markdown("---")
-    st.markdown("## 📊 Trading Signals")
+    st.markdown("## 📊 Sinais de Negociação")
     
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.markdown("### 📈 Trend Analysis")
+        st.markdown("### 📈 Análise de Tendência")
         if not pd.isna(df['SMA_short'].iloc[-1]) and not pd.isna(df['SMA_long'].iloc[-1]):
             if df['SMA_short'].iloc[-1] > df['SMA_long'].iloc[-1]:
-                st.markdown("<div class='success-box'>🟢 <strong>Bullish</strong><br>Short MA > Long MA</div>", unsafe_allow_html=True)
+                st.markdown("<div class='success-box'>🟢 <strong>Altista</strong><br>MA Curta > MA Longa</div>", unsafe_allow_html=True)
             else:
-                st.markdown("<div class='error-box'>🔴 <strong>Bearish</strong><br>Short MA < Long MA</div>", unsafe_allow_html=True)
+                st.markdown("<div class='error-box'>🔴 <strong>Baixista</strong><br>MA Curta < MA Longa</div>", unsafe_allow_html=True)
     
     with col2:
-        st.markdown("### 🎯 RSI Signal")
+        st.markdown("### 🎯 Sinal RSI")
         if not pd.isna(df['RSI'].iloc[-1]):
             rsi_current = df['RSI'].iloc[-1]
             if rsi_current > 70:
-                st.markdown(f"<div class='warning-box'>⚠️ <strong>Overbought</strong><br>RSI: {rsi_current:.2f}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='warning-box'>⚠️ <strong>Sobrecomprado</strong><br>RSI: {rsi_current:.2f}</div>", unsafe_allow_html=True)
             elif rsi_current < 30:
-                st.markdown(f"<div class='info-box'>💡 <strong>Oversold</strong><br>RSI: {rsi_current:.2f}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='info-box'>💡 <strong>Sobrevendido</strong><br>RSI: {rsi_current:.2f}</div>", unsafe_allow_html=True)
             else:
-                st.markdown(f"<div class='success-box'>✅ <strong>Neutral</strong><br>RSI: {rsi_current:.2f}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='success-box'>✅ <strong>Neutro</strong><br>RSI: {rsi_current:.2f}</div>", unsafe_allow_html=True)
     
     with col3:
-        st.markdown("### ⚡ MACD Signal")
+        st.markdown("### ⚡ Sinal MACD")
         if not pd.isna(df['MACD'].iloc[-1]) and not pd.isna(df['MACD_signal'].iloc[-1]):
             if df['MACD'].iloc[-1] > df['MACD_signal'].iloc[-1]:
-                st.markdown("<div class='success-box'>🟢 <strong>Bullish</strong><br>MACD > Signal</div>", unsafe_allow_html=True)
+                st.markdown("<div class='success-box'>🟢 <strong>Altista</strong><br>MACD > Sinal</div>", unsafe_allow_html=True)
             else:
-                st.markdown("<div class='error-box'>🔴 <strong>Bearish</strong><br>MACD < Signal</div>", unsafe_allow_html=True)
+                st.markdown("<div class='error-box'>🔴 <strong>Baixista</strong><br>MACD < Sinal</div>", unsafe_allow_html=True)
     
-    # Price prediction section
+    # Seção de análise de preços
     st.markdown("---")
-    st.markdown("## 🔮 Price Analysis")
+    st.markdown("## 🔮 Análise de Preços")
     
-    # Calculate support and resistance levels
+    # Calcular níveis de suporte e resistência
     recent_high = df['High'].tail(30).max()
     recent_low = df['Low'].tail(30).min()
     
     col1, col2 = st.columns(2)
     
     with col1:
-        st.metric("🎯 30-Day Resistance", f"${recent_high:,.2f}")
-        st.metric("🛡️ 30-Day Support", f"${recent_low:,.2f}")
+        st.metric("🎯 Resistência 30 Dias", f"${recent_high:,.2f}")
+        st.metric("🛡️ Suporte 30 Dias", f"${recent_low:,.2f}")
     
     with col2:
         avg_volume = df['Volume'].tail(30).mean()
         current_volume = df['Volume'].iloc[-1]
-        volume_ratio = (current_volume / avg_volume) * 100
-        st.metric("📊 Volume vs 30-Day Avg", f"{volume_ratio:.2f}%")
+        volume_ratio = (current_volume / avg_volume) * 100 if avg_volume > 0 else 0
+        st.metric("📊 Volume vs Média 30 Dias", f"{volume_ratio:.2f}%")
         
         volatility = df['Close'].tail(30).std()
-        st.metric("📉 30-Day Volatility", f"${volatility:,.2f}")
+        st.metric("📉 Volatilidade 30 Dias", f"${volatility:,.2f}")
     
-    # Historical data table
+    # Tabela de dados históricos
     st.markdown("---")
-    st.markdown("## 📈 Historical Data")
+    st.markdown("## 📈 Dados Históricos")
     
-    # Date range selector for table
+    # Seletor de intervalo de datas para tabela
     col1, col2 = st.columns(2)
     with col1:
         start_date = st.date_input(
-            "📅 Start Date",
+            "📅 Data Inicial",
             value=df.index[-30].date() if len(df) > 30 else df.index[0].date(),
             min_value=df.index[0].date(),
             max_value=df.index[-1].date()
         )
     with col2:
         end_date = st.date_input(
-            "📅 End Date",
+            "📅 Data Final",
             value=df.index[-1].date(),
             min_value=df.index[0].date(),
             max_value=df.index[-1].date()
         )
     
-    # Filter data based on date range
+    # Filtrar dados com base no intervalo de datas
     if not df.empty and len(df) > 0:
         try:
             start_date_ts = pd.Timestamp(start_date)
             end_date_ts = pd.Timestamp(end_date)
             
-            # Ensure dates are within range
+            # Garantir que as datas estejam dentro do intervalo
             if start_date_ts < df.index[0]:
                 start_date_ts = df.index[0]
             if end_date_ts > df.index[-1]:
@@ -824,7 +824,7 @@ if df is not None and not df.empty:
             
             filtered_df = df.loc[start_date_ts:end_date_ts]
             
-            # Display table
+            # Exibir tabela
             display_df = filtered_df[['Open', 'High', 'Low', 'Close', 'Volume']].copy()
             display_df = display_df.round(2)
             display_df['Volume'] = display_df['Volume'].apply(lambda x: f"{x:,.0f}")
@@ -840,32 +840,32 @@ if df is not None and not df.empty:
                 height=400
             )
             
-            # Download button
+            # Botão de download
             csv = filtered_df.to_csv()
             st.download_button(
-                label="📥 Download Data as CSV",
+                label="📥 Baixar Dados em CSV",
                 data=csv,
-                file_name=f"bitcoin_data_{start_date}_{end_date}.csv",
+                file_name=f"bitcoin_dados_{start_date}_{end_date}.csv",
                 mime="text/csv"
             )
         except Exception as e:
-            st.error(f"Error filtering data: {str(e)}")
+            st.error(f"Erro ao filtrar dados: {str(e)}")
     else:
-        st.warning("No data available for the selected date range")
+        st.warning("Nenhum dado disponível para o intervalo de datas selecionado")
     
 else:
-    st.error("Unable to fetch Bitcoin data. Please try again later.")
+    st.error("Não foi possível buscar dados do Bitcoin. Por favor, tente novamente mais tarde.")
 
-# Footer
+# Rodapé
 st.markdown("---")
 st.markdown("""
     <div style='text-align: center; color: #a0aec0;'>
-        <p style='font-size: 14px;'>📊 Data provided by Yahoo Finance | 🔄 Updated every 5 minutes</p>
-        <p style='font-size: 12px;'><em>⚠️ This dashboard is for educational purposes only. Not financial advice.</em></p>
+        <p style='font-size: 14px;'>📊 Dados fornecidos pelo Yahoo Finance | 🔄 Atualizado a cada 5 minutos</p>
+        <p style='font-size: 12px;'><em>⚠️ Este painel é apenas para fins educacionais. Não é aconselhamento financeiro.</em></p>
     </div>
     """, unsafe_allow_html=True)
 
-# Main function
+# Função principal
 def main():
     pass
 
