@@ -2,555 +2,490 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-import plotly.express as px
 from plotly.subplots import make_subplots
 import yfinance as yf
 from datetime import datetime, timedelta
-import warnings
-warnings.filterwarnings('ignore')
+import ta
 
-# Configuração da página
+# Page configuration
 st.set_page_config(
-    page_title="📊 Dashboard de Ciclos do Bitcoin",
+    page_title="Bitcoin Technical Analysis Dashboard",
     page_icon="₿",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# CSS personalizado
+# Custom CSS
 st.markdown("""
-<style>
-    .main-header {
-        font-size: 2.5rem;
-        color: #F7931A;
-        text-align: center;
-        margin-bottom: 2rem;
-        font-weight: bold;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+    <style>
+    .main {
+        padding: 0rem 1rem;
     }
-    .cycle-phase {
-        padding: 1.5rem;
-        border-radius: 15px;
-        margin: 1rem 0;
-        text-align: center;
-        font-weight: bold;
-        font-size: 1.3rem;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    .stMetric {
+        background-color: #f0f2f6;
+        padding: 10px;
+        border-radius: 5px;
     }
-    .accumulation { 
-        background: linear-gradient(135deg, #E8F5E8, #C8E6C9); 
-        color: #1B5E20; 
-        border-left: 5px solid #4CAF50;
-    }
-    .bull-run { 
-        background: linear-gradient(135deg, #FFF3E0, #FFE0B2); 
-        color: #E65100; 
-        border-left: 5px solid #FF9800;
-    }
-    .euphoria { 
-        background: linear-gradient(135deg, #FFEBEE, #FFCDD2); 
-        color: #B71C1C; 
-        border-left: 5px solid #F44336;
-    }
-    .bear-market { 
-        background: linear-gradient(135deg, #E3F2FD, #BBDEFB); 
-        color: #0D47A1; 
-        border-left: 5px solid #2196F3;
-    }
-    .metric-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 1.5rem;
-        border-radius: 15px;
-        color: white;
-        text-align: center;
-        margin: 0.5rem;
-        box-shadow: 0 8px 16px rgba(0,0,0,0.1);
-    }
-    .indicator-safe { color: #4CAF50; font-weight: bold; }
-    .indicator-warning { color: #FF9800; font-weight: bold; }
-    .indicator-danger { color: #F44336; font-weight: bold; }
-    .info-box {
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-        padding: 1rem;
-        border-radius: 10px;
-        margin: 1rem 0;
-        border-left: 4px solid #2196F3;
-    }
-</style>
-""", unsafe_allow_html=True)
+    </style>
+    """, unsafe_allow_html=True)
 
-# Cache otimizado para Streamlit Cloud
-@st.cache_data(ttl=3600, show_spinner=False)
-def fetch_bitcoin_data(period='2y'):
-    """Busca dados do Bitcoin com fallback robusto"""
+# Title
+st.title("₿ Bitcoin Technical Analysis Dashboard")
+st.markdown("---")
+
+# Sidebar
+with st.sidebar:
+    st.header("Settings")
+    
+    # Time period selection
+    period_options = {
+        "1 Month": "1mo",
+        "3 Months": "3mo",
+        "6 Months": "6mo",
+        "1 Year": "1y",
+        "2 Years": "2y",
+        "5 Years": "5y",
+        "Max": "max"
+    }
+    
+    selected_period = st.selectbox(
+        "Select Time Period",
+        options=list(period_options.keys()),
+        index=3
+    )
+    
+    # Interval selection
+    interval_options = {
+        "1 Day": "1d",
+        "1 Week": "1wk",
+        "1 Month": "1mo"
+    }
+    
+    selected_interval = st.selectbox(
+        "Select Interval",
+        options=list(interval_options.keys()),
+        index=0
+    )
+    
+    # Technical indicators
+    st.subheader("Technical Indicators")
+    show_sma = st.checkbox("Simple Moving Average (SMA)", value=True)
+    show_ema = st.checkbox("Exponential Moving Average (EMA)", value=True)
+    show_bb = st.checkbox("Bollinger Bands", value=True)
+    show_rsi = st.checkbox("RSI", value=True)
+    show_macd = st.checkbox("MACD", value=True)
+    show_volume = st.checkbox("Volume", value=True)
+    
+    # Moving average periods
+    if show_sma or show_ema:
+        st.subheader("MA Periods")
+        ma_short = st.slider("Short Period", 5, 50, 20)
+        ma_long = st.slider("Long Period", 50, 200, 50)
+
+# Function to fetch Bitcoin data
+@st.cache_data(ttl=300)
+def get_bitcoin_data(period, interval):
     try:
         btc = yf.Ticker("BTC-USD")
-        data = btc.history(period=period, interval='1d')
-        
-        if data.empty or len(data) < 100:
-            raise Exception("Dados insuficientes")
-            
-        # Calcular médias móveis
-        data['MA_50'] = data['Close'].rolling(window=50, min_periods=1).mean()
-        data['MA_111'] = data['Close'].rolling(window=111, min_periods=1).mean()
-        data['MA_200'] = data['Close'].rolling(window=200, min_periods=1).mean()
-        data['MA_350'] = data['Close'].rolling(window=350, min_periods=1).mean()
-        data['MA_350_x2'] = data['MA_350'] * 2
-        
-        st.success("✅ Dados reais carregados com sucesso!")
-        return data, True
-        
+        df = btc.history(period=period, interval=interval)
+        return df
     except Exception as e:
-        st.warning(f"⚠️ Usando dados simulados: {str(e)}")
-        return generate_simulation_data(period), False
+        st.error(f"Error fetching data: {str(e)}")
+        return None
 
-def generate_simulation_data(period='2y'):
-    """Gera dados simulados realísticos"""
-    days_map = {'1y': 365, '2y': 730, '3y': 1095, '5y': 1825}
-    n_days = days_map.get(period, 730)
+# Function to calculate technical indicators
+def calculate_indicators(df, ma_short=20, ma_long=50):
+    if df is None or df.empty:
+        return df
     
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=n_days)
-    dates = pd.date_range(start=start_date, end=end_date, freq='D')
+    # Simple Moving Averages
+    df['SMA_short'] = ta.trend.sma_indicator(df['Close'], window=ma_short)
+    df['SMA_long'] = ta.trend.sma_indicator(df['Close'], window=ma_long)
     
-    np.random.seed(42)  # Reprodutibilidade
+    # Exponential Moving Averages
+    df['EMA_short'] = ta.trend.ema_indicator(df['Close'], window=ma_short)
+    df['EMA_long'] = ta.trend.ema_indicator(df['Close'], window=ma_long)
     
-    # Simular preços com padrão realístico
-    base_price = 30000
-    prices = []
-    current_price = base_price
+    # Bollinger Bands
+    bollinger = ta.volatility.BollingerBands(df['Close'])
+    df['BB_upper'] = bollinger.bollinger_hband()
+    df['BB_middle'] = bollinger.bollinger_mavg()
+    df['BB_lower'] = bollinger.bollinger_lband()
     
-    halving_date = datetime(2024, 4, 20)
+    # RSI
+    df['RSI'] = ta.momentum.rsi(df['Close'], window=14)
     
-    for date in dates:
-        days_since_halving = (date - halving_date).days
-        
-        # Fator de crescimento baseado no ciclo
-        if days_since_halving < 0:
-            growth = np.random.normal(0.0003, 0.03)  # Pré-halving
-        elif days_since_halving < 500:
-            cycle_boost = min(days_since_halving / 500, 1) * 0.001
-            growth = np.random.normal(0.0008 + cycle_boost, 0.04)  # Pós-halving
-        else:
-            growth = np.random.normal(0.0002, 0.035)  # Estável
-        
-        current_price *= (1 + growth)
-        prices.append(max(current_price, 1000))  # Preço mínimo
+    # MACD
+    macd = ta.trend.MACD(df['Close'])
+    df['MACD'] = macd.macd()
+    df['MACD_signal'] = macd.macd_signal()
+    df['MACD_diff'] = macd.macd_diff()
     
-    # Criar DataFrame
-    df = pd.DataFrame(index=dates)
-    df['Close'] = prices
-    df['High'] = df['Close'] * (1 + np.random.uniform(0, 0.02, len(df)))
-    df['Low'] = df['Close'] * (1 - np.random.uniform(0, 0.02, len(df)))
-    df['Open'] = df['Close'].shift(1).fillna(df['Close'])
-    df['Volume'] = np.random.lognormal(15, 0.2, len(df))
-    
-    # Médias móveis
-    df['MA_50'] = df['Close'].rolling(window=50, min_periods=1).mean()
-    df['MA_111'] = df['Close'].rolling(window=111, min_periods=1).mean()
-    df['MA_200'] = df['Close'].rolling(window=200, min_periods=1).mean()
-    df['MA_350'] = df['Close'].rolling(window=350, min_periods=1).mean()
-    df['MA_350_x2'] = df['MA_350'] * 2
+    # Volume indicators
+    df['Volume_SMA'] = df['Volume'].rolling(window=20).mean()
     
     return df
 
-def calculate_indicators(df):
-    """Calcula indicadores técnicos"""
-    df = df.copy()
-    
-    # MVRV Z-Score (aproximação)
-    ma_365 = df['Close'].rolling(window=365, min_periods=30).mean()
-    std_365 = df['Close'].rolling(window=365, min_periods=30).std()
-    df['mvrv_zscore'] = (df['Close'] - ma_365) / std_365.replace(0, 1)
-    
-    # Pi Cycle Top
-    df['pi_cycle_signal'] = (df['MA_111'] > df['MA_350_x2']) & df['MA_111'].notna() & df['MA_350_x2'].notna()
-    
-    # Puell Multiple (aproximação)
-    df['puell_multiple'] = df['Close'] / ma_365.replace(0, 1)
-    
-    # Mayer Multiple
-    df['mayer_multiple'] = df['Close'] / df['MA_200'].replace(0, 1)
-    
-    # Drawdown
-    df['ath'] = df['Close'].expanding().max()
-    df['drawdown_pct'] = ((df['Close'] / df['ath']) - 1) * 100
-    
-    return df
+# Fetch data
+with st.spinner("Fetching Bitcoin data..."):
+    df = get_bitcoin_data(period_options[selected_period], interval_options[selected_interval])
 
-def determine_cycle_phase(latest_data):
-    """Determina fase do ciclo"""
-    try:
-        mvrv = latest_data.get('mvrv_zscore', 0)
-        pi_cycle = latest_data.get('pi_cycle_signal', False)
-        puell = latest_data.get('puell_multiple', 1)
-        mayer = latest_data.get('mayer_multiple', 1)
-        drawdown = latest_data.get('drawdown_pct', 0)
-        
-        # Sistema de pontuação
-        score = 0
-        
-        if pd.notna(mvrv):
-            if mvrv < -0.5:
-                score -= 3
-            elif mvrv > 3:
-                score += 3
-            elif mvrv > 1:
-                score += 1
-        
-        if pi_cycle:
-            score += 4
-        
-        if pd.notna(puell) and puell > 3:
-            score += 2
-        elif pd.notna(puell) and puell < 0.7:
-            score -= 2
-        
-        if pd.notna(mayer) and mayer > 2:
-            score += 2
-        elif pd.notna(mayer) and mayer < 0.8:
-            score -= 2
-        
-        if drawdown < -60:
-            score -= 3
-        elif drawdown < -30:
-            score -= 1
-        
-        # Determinar fase
-        if score <= -3:
-            return 'accumulation', 'Acumulação - Zona de Compra'
-        elif score >= 4:
-            return 'euphoria', 'Euforia - Zona de Risco'
-        elif score >= 1:
-            return 'bull-run', 'Bull Run - Tendência de Alta'
-        else:
-            return 'bear-market', 'Bear Market - Correção'
-            
-    except Exception:
-        return 'bull-run', 'Bull Run - Tendência de Alta'
-
-def main():
-    st.markdown('<h1 class="main-header">₿ Dashboard de Análise de Ciclos do Bitcoin</h1>', 
-                unsafe_allow_html=True)
+if df is not None and not df.empty:
+    # Calculate indicators
+    df = calculate_indicators(df, ma_short, ma_long)
     
-    # Sidebar
-    st.sidebar.header("⚙️ Configurações")
-    period = st.sidebar.selectbox(
-        "📅 Período de Análise",
-        ['1y', '2y', '3y', '5y'],
-        index=1,
-        help="Selecione o período histórico"
-    )
+    # Current price and metrics
+    current_price = df['Close'].iloc[-1]
+    prev_price = df['Close'].iloc[-2]
+    price_change = current_price - prev_price
+    price_change_pct = (price_change / prev_price) * 100
     
-    show_halvings = st.sidebar.checkbox("📍 Mostrar Halvings", True)
-    
-    # Disclaimer
-    st.markdown("""
-    <div class="info-box">
-        <strong>⚠️ Aviso:</strong> Dashboard educacional com aproximações dos indicadores on-chain. 
-        Para análises profissionais, use APIs especializadas.
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Carregar dados
-    with st.spinner('🔄 Carregando dados do Bitcoin...'):
-        df, is_real_data = fetch_bitcoin_data(period)
-        if df is not None and not df.empty:
-            df = calculate_indicators(df)
-        else:
-            st.error("❌ Erro ao carregar dados")
-            return
-    
-    # Dados atuais
-    latest = df.iloc[-1]
-    current_price = latest['Close']
-    price_change_24h = ((current_price / df['Close'].iloc[-2]) - 1) * 100 if len(df) > 1 else 0
-    
-    # Determinar fase
-    phase_key, phase_name = determine_cycle_phase(latest)
-    
-    # Métricas principais
-    col1, col2, col3, col4 = st.columns(4)
+    # Display metrics
+    col1, col2, col3, col4, col5 = st.columns(5)
     
     with col1:
-        st.markdown(f"""
-        <div class="metric-card">
-            <h3>💰 Preço Atual</h3>
-            <h2>${current_price:,.0f}</h2>
-            <p>{'Real' if is_real_data else 'Simulado'}</p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.metric(
+            "Current Price",
+            f"${current_price:,.2f}",
+            f"{price_change_pct:+.2f}%"
+        )
     
     with col2:
-        change_color = "#4CAF50" if price_change_24h >= 0 else "#F44336"
-        st.markdown(f"""
-        <div class="metric-card">
-            <h3>📈 Variação 24h</h3>
-            <h2 style="color: {change_color}">{price_change_24h:+.2f}%</h2>
-        </div>
-        """, unsafe_allow_html=True)
+        st.metric(
+            "24h High",
+            f"${df['High'].iloc[-1]:,.2f}"
+        )
     
     with col3:
-        next_halving = datetime(2028, 4, 20)
-        days_to_halving = (next_halving - datetime.now()).days
-        st.markdown(f"""
-        <div class="metric-card">
-            <h3>⏰ Próximo Halving</h3>
-            <h2>{days_to_halving}</h2>
-            <p>dias</p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.metric(
+            "24h Low",
+            f"${df['Low'].iloc[-1]:,.2f}"
+        )
     
     with col4:
-        mayer = latest.get('mayer_multiple', 1)
-        st.markdown(f"""
-        <div class="metric-card">
-            <h3>📊 Mayer Multiple</h3>
-            <h2>{mayer:.2f}</h2>
-        </div>
-        """, unsafe_allow_html=True)
+        st.metric(
+            "Volume",
+            f"{df['Volume'].iloc[-1]:,.0f}"
+        )
     
-    # Fase atual
-    st.markdown(f"""
-    <div class="cycle-phase {phase_key}">
-        🎯 <strong>FASE ATUAL:</strong> {phase_name}
-    </div>
-    """, unsafe_allow_html=True)
+    with col5:
+        if not pd.isna(df['RSI'].iloc[-1]):
+            rsi_value = df['RSI'].iloc[-1]
+            rsi_status = "Overbought" if rsi_value > 70 else "Oversold" if rsi_value < 30 else "Neutral"
+            st.metric(
+                "RSI",
+                f"{rsi_value:.2f}",
+                rsi_status
+            )
     
-    # Gráfico principal
-    st.subheader("📈 Análise Técnica do Bitcoin")
+    st.markdown("---")
     
-    fig_main = make_subplots(
-        rows=2, cols=1,
-        subplot_titles=('Preço com Médias Móveis e Pi Cycle', 'Volume'),
-        vertical_spacing=0.1,
-        row_heights=[0.8, 0.2]
+    # Create main chart
+    fig = make_subplots(
+        rows=4, cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.03,
+        row_heights=[0.5, 0.2, 0.15, 0.15],
+        subplot_titles=('Price Chart', 'Volume', 'RSI', 'MACD')
     )
     
-    # Preço e médias
-    fig_main.add_trace(
-        go.Scatter(x=df.index, y=df['Close'], name='BTC', 
-                  line=dict(color='#F7931A', width=2)),
+    # Candlestick chart
+    fig.add_trace(
+        go.Candlestick(
+            x=df.index,
+            open=df['Open'],
+            high=df['High'],
+            low=df['Low'],
+            close=df['Close'],
+            name='BTC-USD',
+            increasing_line_color='#26a69a',
+            decreasing_line_color='#ef5350'
+        ),
         row=1, col=1
     )
     
-    fig_main.add_trace(
-        go.Scatter(x=df.index, y=df['MA_111'], name='MA 111', 
-                  line=dict(color='#2196F3', width=1)),
-        row=1, col=1
-    )
+    # Add moving averages
+    if show_sma:
+        fig.add_trace(
+            go.Scatter(
+                x=df.index,
+                y=df['SMA_short'],
+                name=f'SMA {ma_short}',
+                line=dict(color='blue', width=1)
+            ),
+            row=1, col=1
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=df.index,
+                y=df['SMA_long'],
+                name=f'SMA {ma_long}',
+                line=dict(color='orange', width=1)
+            ),
+            row=1, col=1
+        )
     
-    fig_main.add_trace(
-        go.Scatter(x=df.index, y=df['MA_350_x2'], name='MA 350×2 (Pi Cycle)', 
-                  line=dict(color='#F44336', width=1, dash='dot')),
-        row=1, col=1
-    )
+    if show_ema:
+        fig.add_trace(
+            go.Scatter(
+                x=df.index,
+                y=df['EMA_short'],
+                name=f'EMA {ma_short}',
+                line=dict(color='purple', width=1, dash='dash')
+            ),
+            row=1, col=1
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=df.index,
+                y=df['EMA_long'],
+                name=f'EMA {ma_long}',
+                line=dict(color='red', width=1, dash='dash')
+            ),
+            row=1, col=1
+        )
+    
+    # Add Bollinger Bands
+    if show_bb:
+        fig.add_trace(
+            go.Scatter(
+                x=df.index,
+                y=df['BB_upper'],
+                name='BB Upper',
+                line=dict(color='gray', width=1),
+                opacity=0.3
+            ),
+            row=1, col=1
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=df.index,
+                y=df['BB_lower'],
+                name='BB Lower',
+                line=dict(color='gray', width=1),
+                fill='tonexty',
+                opacity=0.3
+            ),
+            row=1, col=1
+        )
     
     # Volume
-    fig_main.add_trace(
-        go.Bar(x=df.index, y=df['Volume'], name='Volume', 
-               marker_color='rgba(158,158,158,0.3)'),
-        row=2, col=1
+    if show_volume:
+        colors = ['red' if df['Close'].iloc[i] < df['Open'].iloc[i] else 'green' 
+                  for i in range(len(df))]
+        fig.add_trace(
+            go.Bar(
+                x=df.index,
+                y=df['Volume'],
+                name='Volume',
+                marker_color=colors,
+                opacity=0.5
+            ),
+            row=2, col=1
+        )
+    
+    # RSI
+    if show_rsi:
+        fig.add_trace(
+            go.Scatter(
+                x=df.index,
+                y=df['RSI'],
+                name='RSI',
+                line=dict(color='purple', width=2)
+            ),
+            row=3, col=1
+        )
+        # Add overbought/oversold lines
+        fig.add_hline(y=70, line_dash="dash", line_color="red", opacity=0.5, row=3, col=1)
+        fig.add_hline(y=30, line_dash="dash", line_color="green", opacity=0.5, row=3, col=1)
+    
+    # MACD
+    if show_macd:
+        fig.add_trace(
+            go.Scatter(
+                x=df.index,
+                y=df['MACD'],
+                name='MACD',
+                line=dict(color='blue', width=2)
+            ),
+            row=4, col=1
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=df.index,
+                y=df['MACD_signal'],
+                name='Signal',
+                line=dict(color='orange', width=2)
+            ),
+            row=4, col=1
+        )
+        # MACD histogram
+        colors_macd = ['green' if val >= 0 else 'red' for val in df['MACD_diff']]
+        fig.add_trace(
+            go.Bar(
+                x=df.index,
+                y=df['MACD_diff'],
+                name='MACD Histogram',
+                marker_color=colors_macd,
+                opacity=0.5
+            ),
+            row=4, col=1
+        )
+    
+    # Update layout
+    fig.update_layout(
+        title='Bitcoin Technical Analysis',
+        yaxis_title='Price (USD)',
+        xaxis_rangeslider_visible=False,
+        height=1000,
+        showlegend=True,
+        hovermode='x unified',
+        template='plotly_white'
     )
     
-    # Halvings
-    if show_halvings:
-        halvings = {
-            '4º Halving': datetime(2024, 4, 20),
-            '3º Halving': datetime(2020, 5, 11),
-            '2º Halving': datetime(2016, 7, 9)
-        }
-        
-        for name, date in halvings.items():
-            if df.index[0] <= date <= df.index[-1]:
-                fig_main.add_vline(
-                    x=date, line_dash="dash", line_color="purple",
-                    annotation_text=name
-                )
+    # Update y-axes labels
+    fig.update_yaxes(title_text="Price (USD)", row=1, col=1)
+    fig.update_yaxes(title_text="Volume", row=2, col=1)
+    fig.update_yaxes(title_text="RSI", row=3, col=1)
+    fig.update_yaxes(title_text="MACD", row=4, col=1)
     
-    fig_main.update_layout(height=600, showlegend=True, hovermode='x unified')
-    fig_main.update_yaxes(type="log", title_text="Preço (USD)", row=1, col=1)
-    fig_main.update_yaxes(title_text="Volume", row=2, col=1)
+    st.plotly_chart(fig, use_container_width=True)
     
-    st.plotly_chart(fig_main, use_container_width=True)
-    
-    # Indicadores
-    st.subheader("🎯 Indicadores de Ciclo")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # MVRV Z-Score
-        fig_mvrv = go.Figure()
-        fig_mvrv.add_trace(go.Scatter(x=df.index, y=df['mvrv_zscore'], 
-                                     name='MVRV Z-Score', line=dict(color='#4CAF50')))
-        fig_mvrv.add_hline(y=6, line_dash="dash", line_color="red", 
-                          annotation_text="Zona de Risco")
-        fig_mvrv.add_hline(y=-0.5, line_dash="dash", line_color="green", 
-                          annotation_text="Oportunidade")
-        fig_mvrv.update_layout(title="MVRV Z-Score", height=300)
-        st.plotly_chart(fig_mvrv, use_container_width=True)
-        
-        # Puell Multiple
-        fig_puell = go.Figure()
-        fig_puell.add_trace(go.Scatter(x=df.index, y=df['puell_multiple'], 
-                                      name='Puell Multiple', line=dict(color='#9C27B0')))
-        fig_puell.add_hline(y=4, line_dash="dash", line_color="red", 
-                           annotation_text="Topo Histórico")
-        fig_puell.update_layout(title="Puell Multiple", height=300)
-        st.plotly_chart(fig_puell, use_container_width=True)
-    
-    with col2:
-        # Pi Cycle
-        fig_pi = go.Figure()
-        fig_pi.add_trace(go.Scatter(x=df.index, y=df['MA_111'], name='MA 111'))
-        fig_pi.add_trace(go.Scatter(x=df.index, y=df['MA_350_x2'], name='MA 350×2'))
-        
-        # Sinalizar cruzamentos
-        crossovers = df[df['pi_cycle_signal']]
-        if not crossovers.empty:
-            fig_pi.add_trace(go.Scatter(x=crossovers.index, y=crossovers['MA_111'],
-                                       mode='markers', name='Pi Cycle Signal',
-                                       marker=dict(color='red', size=8)))
-        
-        fig_pi.update_layout(title="Pi Cycle Top Indicator", height=300)
-        st.plotly_chart(fig_pi, use_container_width=True)
-        
-        # Mayer Multiple
-        fig_mayer = go.Figure()
-        fig_mayer.add_trace(go.Scatter(x=df.index, y=df['mayer_multiple'], 
-                                      name='Mayer Multiple', line=dict(color='#FF5722')))
-        fig_mayer.add_hline(y=2.4, line_dash="dash", line_color="orange", 
-                           annotation_text="Zona de Atenção")
-        fig_mayer.update_layout(title="Mayer Multiple", height=300)
-        st.plotly_chart(fig_mayer, use_container_width=True)
-    
-    # Status dos indicadores
-    st.subheader("📊 Status Atual dos Indicadores")
+    # Trading signals
+    st.markdown("---")
+    st.subheader("📊 Trading Signals")
     
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        mvrv_current = latest.get('mvrv_zscore', 0)
-        if pd.isna(mvrv_current):
-            status = "N/A"
-            color_class = "indicator-warning"
-        elif mvrv_current < 0:
-            status = "OPORTUNIDADE"
-            color_class = "indicator-safe"
-        elif mvrv_current < 3:
-            status = "NEUTRO"
-            color_class = "indicator-warning"
-        else:
-            status = "RISCO"
-            color_class = "indicator-danger"
-        
-        st.markdown(f"""
-        **MVRV Z-Score:** <span class="{color_class}">{mvrv_current:.2f} - {status}</span>
-        
-        - < 0: Zona de oportunidade
-        - 0-3: Zona neutra
-        - > 3: Zona de risco
-        """, unsafe_allow_html=True)
+        st.markdown("### Trend Analysis")
+        if not pd.isna(df['SMA_short'].iloc[-1]) and not pd.isna(df['SMA_long'].iloc[-1]):
+            if df['SMA_short'].iloc[-1] > df['SMA_long'].iloc[-1]:
+                st.success("🟢 Bullish (Short MA > Long MA)")
+            else:
+                st.error("🔴 Bearish (Short MA < Long MA)")
     
     with col2:
-        pi_current = latest.get('pi_cycle_signal', False)
-        pi_status = "🔴 ATIVO" if pi_current else "🟢 INATIVO"
-        pi_class = "indicator-danger" if pi_current else "indicator-safe"
-        
-        st.markdown(f"""
-        **Pi Cycle Top:** <span class="{pi_class}">{pi_status}</span>
-        
-        - Sinal histórico de topo
-        - MA 111 > MA 350 × 2
-        - Precisão: ~3 dias do pico
-        """, unsafe_allow_html=True)
+        st.markdown("### RSI Signal")
+        if not pd.isna(df['RSI'].iloc[-1]):
+            rsi_current = df['RSI'].iloc[-1]
+            if rsi_current > 70:
+                st.warning("⚠️ Overbought (RSI > 70)")
+            elif rsi_current < 30:
+                st.info("💡 Oversold (RSI < 30)")
+            else:
+                st.success("✅ Neutral (30 < RSI < 70)")
     
     with col3:
-        puell_current = latest.get('puell_multiple', 1)
-        if pd.isna(puell_current):
-            puell_status = "N/A"
-            puell_class = "indicator-warning"
-        elif puell_current > 4:
-            puell_status = "DISTRIBUIÇÃO"
-            puell_class = "indicator-danger"
-        elif puell_current < 0.5:
-            puell_status = "ACUMULAÇÃO"
-            puell_class = "indicator-safe"
-        else:
-            puell_status = "NORMAL"
-            puell_class = "indicator-warning"
-        
-        st.markdown(f"""
-        **Puell Multiple:** <span class="{puell_class}">{puell_current:.2f} - {puell_status}</span>
-        
-        - < 0.5: Acumulação
-        - 0.5-4: Normal
-        - > 4: Distribuição
-        """, unsafe_allow_html=True)
+        st.markdown("### MACD Signal")
+        if not pd.isna(df['MACD'].iloc[-1]) and not pd.isna(df['MACD_signal'].iloc[-1]):
+            if df['MACD'].iloc[-1] > df['MACD_signal'].iloc[-1]:
+                st.success("🟢 Bullish (MACD > Signal)")
+            else:
+                st.error("🔴 Bearish (MACD < Signal)")
     
-    # Estratégia recomendada
-    st.subheader("💡 Estratégia Recomendada")
-    
-    strategies = {
-        'accumulation': """
-        🟢 **ACUMULAÇÃO - COMPRAR AGRESSIVAMENTE**
-        - Implemente DCA semanal/mensal
-        - Aproveite quedas >15% para aportes extras
-        - Mantenha 80-90% do capital alocado
-        - Horizonte: 18-24 meses
-        """,
-        'bull-run': """
-        🟡 **BULL RUN - MANTER POSIÇÕES**
-        - Reduza DCA mas mantenha consistência
-        - Prepare realizações parciais (10-20%)
-        - Monitore indicadores de topo diariamente
-        - Risco moderado, volatilidade crescente
-        """,
-        'euphoria': """
-        🔴 **EUFORIA - REALIZAR LUCROS**
-        - Venda 30-50% das posições imediatamente
-        - Monitore Pi Cycle Top diariamente
-        - Prepare-se para bear market iminente
-        - Mantenha apenas core de longo prazo (20-30%)
-        """,
-        'bear-market': """
-        🔵 **BEAR MARKET - PACIÊNCIA**
-        - Retome DCA gradualmente
-        - Aproveite quedas >20% para compras
-        - 12-18 meses de lateralização esperada
-        - Use tempo para estudar e se preparar
-        """
-    }
-    
-    current_strategy = strategies.get(phase_key, strategies['bull-run'])
-    st.markdown(current_strategy)
-    
-    # Tabela de ciclos históricos
-    st.subheader("📚 Dados Históricos dos Ciclos")
-    
-    cycles_data = {
-        'Ciclo': ['1º (2009-2012)', '2º (2012-2016)', '3º (2016-2020)', '4º (2020-2024)', 'Atual (2024-?)'],
-        'Data do Halving': ['28/11/2012', '09/07/2016', '11/05/2020', '20/04/2024', '~2028'],
-        'Preço no Halving': ['$12', '$650', '$8.600', '$64.000', f'${current_price:,.0f}'],
-        'Pico Máximo': ['$1.163', '$19.783', '$68.789', 'Em progresso', 'TBD'],
-        'Ganho Total': ['9.592%', '3.043%', '800%', 'TBD', 'TBD'],
-        'Duração (meses)': ['12', '17', '18', 'TBD', 'TBD']
-    }
-    
-    df_cycles = pd.DataFrame(cycles_data)
-    st.dataframe(df_cycles, use_container_width=True)
-    
-    # Footer
+    # Price prediction section
     st.markdown("---")
-    st.markdown(f"""
-    **⚠️ Disclaimer:** Dashboard educacional. Não constitui consultoria financeira. 
-    Invista apenas o que pode perder.
+    st.subheader("🔮 Price Analysis")
     
-    **Última atualização:** {datetime.now().strftime("%d/%m/%Y às %H:%M:%S")}
+    # Calculate support and resistance levels
+    recent_high = df['High'].tail(30).max()
+    recent_low = df['Low'].tail(30).min()
     
-    **Fonte:** {'Yahoo Finance (dados reais)' if is_real_data else 'Simulação baseada em padrões históricos'}
-    """)
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.metric("30-Day Resistance", f"${recent_high:,.2f}")
+        st.metric("30-Day Support", f"${recent_low:,.2f}")
+    
+    with col2:
+        avg_volume = df['Volume'].tail(30).mean()
+        current_volume = df['Volume'].iloc[-1]
+        volume_ratio = (current_volume / avg_volume) * 100
+        st.metric("Volume vs 30-Day Avg", f"{volume_ratio:.2f}%")
+        
+        volatility = df['Close'].tail(30).std()
+        st.metric("30-Day Volatility", f"${volatility:,.2f}")
+    
+    # Historical data table
+    st.markdown("---")
+    st.subheader("📈 Historical Data")
+    
+    # Date range selector for table
+    col1, col2 = st.columns(2)
+    with col1:
+        start_date = st.date_input(
+            "Start Date",
+            value=df.index[-30].date() if len(df) > 30 else df.index[0].date(),
+            min_value=df.index[0].date(),
+            max_value=df.index[-1].date()
+        )
+    with col2:
+        end_date = st.date_input(
+            "End Date",
+            value=df.index[-1].date(),
+            min_value=df.index[0].date(),
+            max_value=df.index[-1].date()
+        )
+    
+    # Filter data based on date range - FIX APPLIED HERE
+    if not df.empty and len(df) > 0:
+        try:
+            start_date_ts = pd.Timestamp(start_date)
+            end_date_ts = pd.Timestamp(end_date)
+            
+            # Ensure dates are within range
+            if start_date_ts < df.index[0]:
+                start_date_ts = df.index[0]
+            if end_date_ts > df.index[-1]:
+                end_date_ts = df.index[-1]
+            
+            filtered_df = df.loc[start_date_ts:end_date_ts]
+            
+            # Display table
+            display_df = filtered_df[['Open', 'High', 'Low', 'Close', 'Volume']].copy()
+            display_df = display_df.round(2)
+            display_df['Volume'] = display_df['Volume'].apply(lambda x: f"{x:,.0f}")
+            
+            st.dataframe(
+                display_df.style.format({
+                    'Open': '${:,.2f}',
+                    'High': '${:,.2f}',
+                    'Low': '${:,.2f}',
+                    'Close': '${:,.2f}'
+                }),
+                use_container_width=True,
+                height=400
+            )
+            
+            # Download button
+            csv = filtered_df.to_csv()
+            st.download_button(
+                label="📥 Download Data as CSV",
+                data=csv,
+                file_name=f"bitcoin_data_{start_date}_{end_date}.csv",
+                mime="text/csv"
+            )
+        except Exception as e:
+            st.error(f"Error filtering data: {str(e)}")
+    else:
+        st.warning("No data available for the selected date range")
+    
+else:
+    st.error("Unable to fetch Bitcoin data. Please try again later.")
+
+# Footer
+st.markdown("---")
+st.markdown("""
+    <div style='text-align: center'>
+        <p>Data provided by Yahoo Finance | Updated every 5 minutes</p>
+        <p><small>This dashboard is for educational purposes only. Not financial advice.</small></p>
+    </div>
+    """, unsafe_allow_html=True)
+
+# Main function
+def main():
+    pass
 
 if __name__ == "__main__":
     main()
