@@ -15,27 +15,146 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS
+# Custom CSS with improved colors
 st.markdown("""
     <style>
     .main {
         padding: 0rem 1rem;
+        background-color: #0e1117;
     }
+    
     .stMetric {
-        background-color: #f0f2f6;
-        padding: 10px;
-        border-radius: 5px;
+        background: linear-gradient(135deg, #1e2530 0%, #2d3748 100%);
+        padding: 20px;
+        border-radius: 10px;
+        border: 1px solid #3d4758;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
     }
+    
+    .stMetric label {
+        color: #a0aec0 !important;
+        font-size: 14px !important;
+        font-weight: 600 !important;
+    }
+    
+    .stMetric [data-testid="stMetricValue"] {
+        color: #ffffff !important;
+        font-size: 24px !important;
+        font-weight: 700 !important;
+    }
+    
+    .stMetric [data-testid="stMetricDelta"] {
+        font-size: 16px !important;
+        font-weight: 600 !important;
+    }
+    
+    h1 {
+        color: #f7931a !important;
+        font-weight: 800 !important;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    }
+    
+    h2, h3 {
+        color: #ffffff !important;
+        font-weight: 700 !important;
+    }
+    
+    .stSelectbox label, .stCheckbox label, .stSlider label {
+        color: #e2e8f0 !important;
+        font-weight: 600 !important;
+    }
+    
+    div[data-baseweb="select"] > div {
+        background-color: #2d3748 !important;
+        border-color: #4a5568 !important;
+        color: #ffffff !important;
+    }
+    
+    .stButton > button {
+        background: linear-gradient(135deg, #f7931a 0%, #ff9f1a 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 24px;
+        font-weight: 600;
+        box-shadow: 0 4px 6px rgba(247, 147, 26, 0.3);
+        transition: all 0.3s ease;
+    }
+    
+    .stButton > button:hover {
+        background: linear-gradient(135deg, #ff9f1a 0%, #f7931a 100%);
+        box-shadow: 0 6px 8px rgba(247, 147, 26, 0.4);
+        transform: translateY(-2px);
+    }
+    
+    .success-box {
+        background-color: #1a472a;
+        border-left: 4px solid #22c55e;
+        padding: 15px;
+        border-radius: 5px;
+        color: #86efac;
+        margin: 10px 0;
+    }
+    
+    .error-box {
+        background-color: #4a1a1a;
+        border-left: 4px solid #ef4444;
+        padding: 15px;
+        border-radius: 5px;
+        color: #fca5a5;
+        margin: 10px 0;
+    }
+    
+    .warning-box {
+        background-color: #4a3a1a;
+        border-left: 4px solid #f59e0b;
+        padding: 15px;
+        border-radius: 5px;
+        color: #fcd34d;
+        margin: 10px 0;
+    }
+    
+    .info-box {
+        background-color: #1a3a4a;
+        border-left: 4px solid #3b82f6;
+        padding: 15px;
+        border-radius: 5px;
+        color: #93c5fd;
+        margin: 10px 0;
+    }
+    
+    hr {
+        border-color: #4a5568 !important;
+        margin: 30px 0;
+    }
+    
+    .sidebar .sidebar-content {
+        background-color: #1a202c;
+    }
+    
+    [data-testid="stSidebar"] {
+        background-color: #1a202c;
+    }
+    
+    .stDataFrame {
+        background-color: #2d3748;
+        border-radius: 10px;
+    }
+    
     </style>
     """, unsafe_allow_html=True)
 
-# Title
-st.title("₿ Bitcoin Technical Analysis Dashboard")
+# Title with gradient effect
+st.markdown("""
+    <h1 style='text-align: center; font-size: 48px; margin-bottom: 10px;'>
+        ₿ Bitcoin Technical Analysis Dashboard
+    </h1>
+    """, unsafe_allow_html=True)
 st.markdown("---")
 
-# Sidebar
+# Sidebar with improved styling
 with st.sidebar:
-    st.header("Settings")
+    st.markdown("### ⚙️ Settings")
     
     # Time period selection
     period_options = {
@@ -49,7 +168,7 @@ with st.sidebar:
     }
     
     selected_period = st.selectbox(
-        "Select Time Period",
+        "📅 Select Time Period",
         options=list(period_options.keys()),
         index=3
     )
@@ -62,13 +181,14 @@ with st.sidebar:
     }
     
     selected_interval = st.selectbox(
-        "Select Interval",
+        "⏱️ Select Interval",
         options=list(interval_options.keys()),
         index=0
     )
     
     # Technical indicators
-    st.subheader("Technical Indicators")
+    st.markdown("---")
+    st.markdown("### 📊 Technical Indicators")
     show_sma = st.checkbox("Simple Moving Average (SMA)", value=True)
     show_ema = st.checkbox("Exponential Moving Average (EMA)", value=True)
     show_bb = st.checkbox("Bollinger Bands", value=True)
@@ -78,7 +198,8 @@ with st.sidebar:
     
     # Moving average periods
     if show_sma or show_ema:
-        st.subheader("MA Periods")
+        st.markdown("---")
+        st.markdown("### 📈 MA Periods")
         ma_short = st.slider("Short Period", 5, 50, 20)
         ma_long = st.slider("Long Period", 50, 200, 50)
 
@@ -127,7 +248,7 @@ def calculate_indicators(df, ma_short=20, ma_long=50):
     return df
 
 # Fetch data
-with st.spinner("Fetching Bitcoin data..."):
+with st.spinner("🔄 Fetching Bitcoin data..."):
     df = get_bitcoin_data(period_options[selected_period], interval_options[selected_interval])
 
 if df is not None and not df.empty:
@@ -140,32 +261,33 @@ if df is not None and not df.empty:
     price_change = current_price - prev_price
     price_change_pct = (price_change / prev_price) * 100
     
-    # Display metrics
+    # Display metrics with improved styling
     col1, col2, col3, col4, col5 = st.columns(5)
     
     with col1:
         st.metric(
-            "Current Price",
+            "💰 Current Price",
             f"${current_price:,.2f}",
             f"{price_change_pct:+.2f}%"
         )
     
     with col2:
         st.metric(
-            "24h High",
+            "📈 24h High",
             f"${df['High'].iloc[-1]:,.2f}"
         )
     
     with col3:
         st.metric(
-            "24h Low",
+            "📉 24h Low",
             f"${df['Low'].iloc[-1]:,.2f}"
         )
     
     with col4:
+        volume_millions = df['Volume'].iloc[-1] / 1_000_000
         st.metric(
-            "Volume",
-            f"{df['Volume'].iloc[-1]:,.0f}"
+            "📊 Volume",
+            f"{volume_millions:.2f}M"
         )
     
     with col5:
@@ -173,14 +295,14 @@ if df is not None and not df.empty:
             rsi_value = df['RSI'].iloc[-1]
             rsi_status = "Overbought" if rsi_value > 70 else "Oversold" if rsi_value < 30 else "Neutral"
             st.metric(
-                "RSI",
+                "🎯 RSI",
                 f"{rsi_value:.2f}",
                 rsi_status
             )
     
     st.markdown("---")
     
-    # Create main chart
+    # Create main chart with dark theme
     fig = make_subplots(
         rows=4, cols=1,
         shared_xaxes=True,
@@ -198,20 +320,22 @@ if df is not None and not df.empty:
             low=df['Low'],
             close=df['Close'],
             name='BTC-USD',
-            increasing_line_color='#26a69a',
-            decreasing_line_color='#ef5350'
+            increasing_line_color='#22c55e',
+            decreasing_line_color='#ef4444',
+            increasing_fillcolor='#22c55e',
+            decreasing_fillcolor='#ef4444'
         ),
         row=1, col=1
     )
     
-    # Add moving averages
+    # Add moving averages with better colors
     if show_sma:
         fig.add_trace(
             go.Scatter(
                 x=df.index,
                 y=df['SMA_short'],
                 name=f'SMA {ma_short}',
-                line=dict(color='blue', width=1)
+                line=dict(color='#3b82f6', width=2)
             ),
             row=1, col=1
         )
@@ -220,7 +344,7 @@ if df is not None and not df.empty:
                 x=df.index,
                 y=df['SMA_long'],
                 name=f'SMA {ma_long}',
-                line=dict(color='orange', width=1)
+                line=dict(color='#f59e0b', width=2)
             ),
             row=1, col=1
         )
@@ -231,7 +355,7 @@ if df is not None and not df.empty:
                 x=df.index,
                 y=df['EMA_short'],
                 name=f'EMA {ma_short}',
-                line=dict(color='purple', width=1, dash='dash')
+                line=dict(color='#8b5cf6', width=2, dash='dash')
             ),
             row=1, col=1
         )
@@ -240,7 +364,7 @@ if df is not None and not df.empty:
                 x=df.index,
                 y=df['EMA_long'],
                 name=f'EMA {ma_long}',
-                line=dict(color='red', width=1, dash='dash')
+                line=dict(color='#ec4899', width=2, dash='dash')
             ),
             row=1, col=1
         )
@@ -252,8 +376,8 @@ if df is not None and not df.empty:
                 x=df.index,
                 y=df['BB_upper'],
                 name='BB Upper',
-                line=dict(color='gray', width=1),
-                opacity=0.3
+                line=dict(color='#64748b', width=1),
+                opacity=0.5
             ),
             row=1, col=1
         )
@@ -262,16 +386,17 @@ if df is not None and not df.empty:
                 x=df.index,
                 y=df['BB_lower'],
                 name='BB Lower',
-                line=dict(color='gray', width=1),
+                line=dict(color='#64748b', width=1),
                 fill='tonexty',
-                opacity=0.3
+                fillcolor='rgba(100, 116, 139, 0.1)',
+                opacity=0.5
             ),
             row=1, col=1
         )
     
-    # Volume
+    # Volume with gradient colors
     if show_volume:
-        colors = ['red' if df['Close'].iloc[i] < df['Open'].iloc[i] else 'green' 
+        colors = ['#ef4444' if df['Close'].iloc[i] < df['Open'].iloc[i] else '#22c55e' 
                   for i in range(len(df))]
         fig.add_trace(
             go.Bar(
@@ -279,34 +404,35 @@ if df is not None and not df.empty:
                 y=df['Volume'],
                 name='Volume',
                 marker_color=colors,
-                opacity=0.5
+                opacity=0.6
             ),
             row=2, col=1
         )
     
-    # RSI
+    # RSI with colored zones
     if show_rsi:
         fig.add_trace(
             go.Scatter(
                 x=df.index,
                 y=df['RSI'],
                 name='RSI',
-                line=dict(color='purple', width=2)
+                line=dict(color='#8b5cf6', width=2)
             ),
             row=3, col=1
         )
         # Add overbought/oversold lines
-        fig.add_hline(y=70, line_dash="dash", line_color="red", opacity=0.5, row=3, col=1)
-        fig.add_hline(y=30, line_dash="dash", line_color="green", opacity=0.5, row=3, col=1)
+        fig.add_hline(y=70, line_dash="dash", line_color="#ef4444", opacity=0.7, row=3, col=1)
+        fig.add_hline(y=30, line_dash="dash", line_color="#22c55e", opacity=0.7, row=3, col=1)
+        fig.add_hline(y=50, line_dash="dot", line_color="#64748b", opacity=0.5, row=3, col=1)
     
-    # MACD
+    # MACD with better colors
     if show_macd:
         fig.add_trace(
             go.Scatter(
                 x=df.index,
                 y=df['MACD'],
                 name='MACD',
-                line=dict(color='blue', width=2)
+                line=dict(color='#3b82f6', width=2)
             ),
             row=4, col=1
         )
@@ -315,78 +441,90 @@ if df is not None and not df.empty:
                 x=df.index,
                 y=df['MACD_signal'],
                 name='Signal',
-                line=dict(color='orange', width=2)
+                line=dict(color='#f59e0b', width=2)
             ),
             row=4, col=1
         )
         # MACD histogram
-        colors_macd = ['green' if val >= 0 else 'red' for val in df['MACD_diff']]
+        colors_macd = ['#22c55e' if val >= 0 else '#ef4444' for val in df['MACD_diff']]
         fig.add_trace(
             go.Bar(
                 x=df.index,
                 y=df['MACD_diff'],
                 name='MACD Histogram',
                 marker_color=colors_macd,
-                opacity=0.5
+                opacity=0.6
             ),
             row=4, col=1
         )
     
-    # Update layout
+    # Update layout with dark theme
     fig.update_layout(
-        title='Bitcoin Technical Analysis',
-        yaxis_title='Price (USD)',
+        title={
+            'text': 'Bitcoin Technical Analysis',
+            'font': {'size': 24, 'color': '#ffffff', 'family': 'Arial Black'}
+        },
         xaxis_rangeslider_visible=False,
         height=1000,
         showlegend=True,
         hovermode='x unified',
-        template='plotly_white'
+        template='plotly_dark',
+        plot_bgcolor='#0e1117',
+        paper_bgcolor='#0e1117',
+        font=dict(color='#e2e8f0'),
+        legend=dict(
+            bgcolor='rgba(30, 37, 48, 0.8)',
+            bordercolor='#4a5568',
+            borderwidth=1
+        )
     )
     
     # Update y-axes labels
-    fig.update_yaxes(title_text="Price (USD)", row=1, col=1)
-    fig.update_yaxes(title_text="Volume", row=2, col=1)
-    fig.update_yaxes(title_text="RSI", row=3, col=1)
-    fig.update_yaxes(title_text="MACD", row=4, col=1)
+    fig.update_yaxes(title_text="Price (USD)", row=1, col=1, gridcolor='#2d3748')
+    fig.update_yaxes(title_text="Volume", row=2, col=1, gridcolor='#2d3748')
+    fig.update_yaxes(title_text="RSI", row=3, col=1, gridcolor='#2d3748')
+    fig.update_yaxes(title_text="MACD", row=4, col=1, gridcolor='#2d3748')
+    
+    fig.update_xaxes(gridcolor='#2d3748')
     
     st.plotly_chart(fig, use_container_width=True)
     
-    # Trading signals
+    # Trading signals with custom styled boxes
     st.markdown("---")
-    st.subheader("📊 Trading Signals")
+    st.markdown("## 📊 Trading Signals")
     
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.markdown("### Trend Analysis")
+        st.markdown("### 📈 Trend Analysis")
         if not pd.isna(df['SMA_short'].iloc[-1]) and not pd.isna(df['SMA_long'].iloc[-1]):
             if df['SMA_short'].iloc[-1] > df['SMA_long'].iloc[-1]:
-                st.success("🟢 Bullish (Short MA > Long MA)")
+                st.markdown("<div class='success-box'>🟢 <strong>Bullish</strong><br>Short MA > Long MA</div>", unsafe_allow_html=True)
             else:
-                st.error("🔴 Bearish (Short MA < Long MA)")
+                st.markdown("<div class='error-box'>🔴 <strong>Bearish</strong><br>Short MA < Long MA</div>", unsafe_allow_html=True)
     
     with col2:
-        st.markdown("### RSI Signal")
+        st.markdown("### 🎯 RSI Signal")
         if not pd.isna(df['RSI'].iloc[-1]):
             rsi_current = df['RSI'].iloc[-1]
             if rsi_current > 70:
-                st.warning("⚠️ Overbought (RSI > 70)")
+                st.markdown(f"<div class='warning-box'>⚠️ <strong>Overbought</strong><br>RSI: {rsi_current:.2f}</div>", unsafe_allow_html=True)
             elif rsi_current < 30:
-                st.info("💡 Oversold (RSI < 30)")
+                st.markdown(f"<div class='info-box'>💡 <strong>Oversold</strong><br>RSI: {rsi_current:.2f}</div>", unsafe_allow_html=True)
             else:
-                st.success("✅ Neutral (30 < RSI < 70)")
+                st.markdown(f"<div class='success-box'>✅ <strong>Neutral</strong><br>RSI: {rsi_current:.2f}</div>", unsafe_allow_html=True)
     
     with col3:
-        st.markdown("### MACD Signal")
+        st.markdown("### ⚡ MACD Signal")
         if not pd.isna(df['MACD'].iloc[-1]) and not pd.isna(df['MACD_signal'].iloc[-1]):
             if df['MACD'].iloc[-1] > df['MACD_signal'].iloc[-1]:
-                st.success("🟢 Bullish (MACD > Signal)")
+                st.markdown("<div class='success-box'>🟢 <strong>Bullish</strong><br>MACD > Signal</div>", unsafe_allow_html=True)
             else:
-                st.error("🔴 Bearish (MACD < Signal)")
+                st.markdown("<div class='error-box'>🔴 <strong>Bearish</strong><br>MACD < Signal</div>", unsafe_allow_html=True)
     
     # Price prediction section
     st.markdown("---")
-    st.subheader("🔮 Price Analysis")
+    st.markdown("## 🔮 Price Analysis")
     
     # Calculate support and resistance levels
     recent_high = df['High'].tail(30).max()
@@ -395,40 +533,40 @@ if df is not None and not df.empty:
     col1, col2 = st.columns(2)
     
     with col1:
-        st.metric("30-Day Resistance", f"${recent_high:,.2f}")
-        st.metric("30-Day Support", f"${recent_low:,.2f}")
+        st.metric("🎯 30-Day Resistance", f"${recent_high:,.2f}")
+        st.metric("🛡️ 30-Day Support", f"${recent_low:,.2f}")
     
     with col2:
         avg_volume = df['Volume'].tail(30).mean()
         current_volume = df['Volume'].iloc[-1]
         volume_ratio = (current_volume / avg_volume) * 100
-        st.metric("Volume vs 30-Day Avg", f"{volume_ratio:.2f}%")
+        st.metric("📊 Volume vs 30-Day Avg", f"{volume_ratio:.2f}%")
         
         volatility = df['Close'].tail(30).std()
-        st.metric("30-Day Volatility", f"${volatility:,.2f}")
+        st.metric("📉 30-Day Volatility", f"${volatility:,.2f}")
     
     # Historical data table
     st.markdown("---")
-    st.subheader("📈 Historical Data")
+    st.markdown("## 📈 Historical Data")
     
     # Date range selector for table
     col1, col2 = st.columns(2)
     with col1:
         start_date = st.date_input(
-            "Start Date",
+            "📅 Start Date",
             value=df.index[-30].date() if len(df) > 30 else df.index[0].date(),
             min_value=df.index[0].date(),
             max_value=df.index[-1].date()
         )
     with col2:
         end_date = st.date_input(
-            "End Date",
+            "📅 End Date",
             value=df.index[-1].date(),
             min_value=df.index[0].date(),
             max_value=df.index[-1].date()
         )
     
-    # Filter data based on date range - FIX APPLIED HERE
+    # Filter data based on date range
     if not df.empty and len(df) > 0:
         try:
             start_date_ts = pd.Timestamp(start_date)
@@ -477,9 +615,9 @@ else:
 # Footer
 st.markdown("---")
 st.markdown("""
-    <div style='text-align: center'>
-        <p>Data provided by Yahoo Finance | Updated every 5 minutes</p>
-        <p><small>This dashboard is for educational purposes only. Not financial advice.</small></p>
+    <div style='text-align: center; color: #a0aec0;'>
+        <p style='font-size: 14px;'>📊 Data provided by Yahoo Finance | 🔄 Updated every 5 minutes</p>
+        <p style='font-size: 12px;'><em>⚠️ This dashboard is for educational purposes only. Not financial advice.</em></p>
     </div>
     """, unsafe_allow_html=True)
 
