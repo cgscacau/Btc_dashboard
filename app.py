@@ -123,6 +123,52 @@ st.markdown("""
         margin: 10px 0;
     }
     
+    .analysis-box {
+        background: linear-gradient(135deg, #1e3a5f 0%, #2d4a6f 100%);
+        border: 2px solid #3b82f6;
+        border-radius: 15px;
+        padding: 25px;
+        margin: 20px 0;
+        box-shadow: 0 8px 16px rgba(59, 130, 246, 0.2);
+    }
+    
+    .analysis-header {
+        color: #60a5fa;
+        font-size: 24px;
+        font-weight: 700;
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+    }
+    
+    .analysis-content {
+        color: #e2e8f0;
+        font-size: 16px;
+        line-height: 1.8;
+    }
+    
+    .prediction-card {
+        background: linear-gradient(135deg, #2d1b4e 0%, #3d2b5e 100%);
+        border: 2px solid #8b5cf6;
+        border-radius: 12px;
+        padding: 20px;
+        margin: 15px 0;
+        box-shadow: 0 6px 12px rgba(139, 92, 246, 0.2);
+    }
+    
+    .prediction-title {
+        color: #a78bfa;
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 10px;
+    }
+    
+    .prediction-text {
+        color: #e2e8f0;
+        font-size: 15px;
+        line-height: 1.6;
+    }
+    
     hr {
         border-color: #4a5568 !important;
         margin: 30px 0;
@@ -247,6 +293,148 @@ def calculate_indicators(df, ma_short=20, ma_long=50):
     
     return df
 
+# Function to generate market analysis
+def generate_market_analysis(df, ma_short, ma_long):
+    if df is None or df.empty:
+        return None
+    
+    analysis = {
+        'trend': '',
+        'momentum': '',
+        'volatility': '',
+        'volume': '',
+        'prediction': '',
+        'key_levels': {},
+        'signals': []
+    }
+    
+    # Get latest values
+    current_price = df['Close'].iloc[-1]
+    rsi = df['RSI'].iloc[-1] if not pd.isna(df['RSI'].iloc[-1]) else 50
+    macd = df['MACD'].iloc[-1] if not pd.isna(df['MACD'].iloc[-1]) else 0
+    macd_signal = df['MACD_signal'].iloc[-1] if not pd.isna(df['MACD_signal'].iloc[-1]) else 0
+    sma_short = df['SMA_short'].iloc[-1] if not pd.isna(df['SMA_short'].iloc[-1]) else current_price
+    sma_long = df['SMA_long'].iloc[-1] if not pd.isna(df['SMA_long'].iloc[-1]) else current_price
+    bb_upper = df['BB_upper'].iloc[-1] if not pd.isna(df['BB_upper'].iloc[-1]) else current_price * 1.02
+    bb_lower = df['BB_lower'].iloc[-1] if not pd.isna(df['BB_lower'].iloc[-1]) else current_price * 0.98
+    
+    # Calculate price changes
+    price_change_7d = ((current_price - df['Close'].iloc[-7]) / df['Close'].iloc[-7] * 100) if len(df) >= 7 else 0
+    price_change_30d = ((current_price - df['Close'].iloc[-30]) / df['Close'].iloc[-30] * 100) if len(df) >= 30 else 0
+    
+    # Trend Analysis
+    if sma_short > sma_long:
+        if price_change_7d > 5:
+            analysis['trend'] = "Strong Bullish"
+            analysis['signals'].append("🚀 Strong uptrend confirmed")
+        else:
+            analysis['trend'] = "Bullish"
+            analysis['signals'].append("📈 Uptrend in progress")
+    else:
+        if price_change_7d < -5:
+            analysis['trend'] = "Strong Bearish"
+            analysis['signals'].append("⚠️ Strong downtrend detected")
+        else:
+            analysis['trend'] = "Bearish"
+            analysis['signals'].append("📉 Downtrend in progress")
+    
+    # Momentum Analysis
+    if rsi > 70:
+        analysis['momentum'] = "Overbought"
+        analysis['signals'].append("⚠️ RSI indicates overbought conditions - potential correction ahead")
+    elif rsi < 30:
+        analysis['momentum'] = "Oversold"
+        analysis['signals'].append("💡 RSI indicates oversold conditions - potential bounce expected")
+    elif 45 <= rsi <= 55:
+        analysis['momentum'] = "Neutral"
+        analysis['signals'].append("⚖️ Momentum is neutral - waiting for direction")
+    elif rsi > 55:
+        analysis['momentum'] = "Bullish"
+        analysis['signals'].append("✅ Positive momentum building")
+    else:
+        analysis['momentum'] = "Bearish"
+        analysis['signals'].append("⚠️ Negative momentum present")
+    
+    # MACD Analysis
+    if macd > macd_signal:
+        if macd > 0:
+            analysis['signals'].append("🟢 MACD bullish crossover - buy signal active")
+        else:
+            analysis['signals'].append("🟡 MACD turning bullish - early buy signal")
+    else:
+        if macd < 0:
+            analysis['signals'].append("🔴 MACD bearish crossover - sell signal active")
+        else:
+            analysis['signals'].append("🟠 MACD turning bearish - caution advised")
+    
+    # Volatility Analysis
+    bb_width = ((bb_upper - bb_lower) / current_price) * 100
+    if bb_width > 10:
+        analysis['volatility'] = "High"
+        analysis['signals'].append("🌊 High volatility detected - expect large price swings")
+    elif bb_width < 5:
+        analysis['volatility'] = "Low"
+        analysis['signals'].append("😴 Low volatility - potential breakout coming")
+    else:
+        analysis['volatility'] = "Moderate"
+    
+    # Bollinger Bands position
+    if current_price > bb_upper:
+        analysis['signals'].append("⚠️ Price above upper Bollinger Band - overextended")
+    elif current_price < bb_lower:
+        analysis['signals'].append("💡 Price below lower Bollinger Band - potential reversal")
+    
+    # Volume Analysis
+    avg_volume = df['Volume'].tail(20).mean()
+    current_volume = df['Volume'].iloc[-1]
+    volume_ratio = current_volume / avg_volume
+    
+    if volume_ratio > 1.5:
+        analysis['volume'] = "High"
+        analysis['signals'].append("📊 Volume surge detected - strong conviction in current move")
+    elif volume_ratio < 0.5:
+        analysis['volume'] = "Low"
+        analysis['signals'].append("📉 Low volume - lack of conviction, trend may be weak")
+    else:
+        analysis['volume'] = "Normal"
+    
+    # Key Levels
+    recent_high = df['High'].tail(30).max()
+    recent_low = df['Low'].tail(30).min()
+    analysis['key_levels'] = {
+        'resistance': recent_high,
+        'support': recent_low,
+        'bb_upper': bb_upper,
+        'bb_lower': bb_lower
+    }
+    
+    # Generate Prediction
+    bullish_signals = sum([
+        sma_short > sma_long,
+        rsi < 70 and rsi > 45,
+        macd > macd_signal,
+        price_change_7d > 0,
+        current_price > bb_lower
+    ])
+    
+    if bullish_signals >= 4:
+        analysis['prediction'] = "Strong Buy"
+        analysis['outlook'] = f"Based on technical indicators, Bitcoin shows strong bullish momentum. The price is currently at ${current_price:,.2f} with multiple indicators suggesting upward movement. Key resistance is at ${recent_high:,.2f}. If this level is broken, we could see further gains toward ${recent_high * 1.05:,.2f}."
+    elif bullish_signals >= 3:
+        analysis['prediction'] = "Buy"
+        analysis['outlook'] = f"Bitcoin is showing positive signals with the current price at ${current_price:,.2f}. The trend is favorable, though some caution is warranted. Watch for a break above ${recent_high:,.2f} for confirmation of continued uptrend."
+    elif bullish_signals == 2:
+        analysis['prediction'] = "Hold"
+        analysis['outlook'] = f"Bitcoin is in a consolidation phase at ${current_price:,.2f}. Mixed signals suggest waiting for clearer direction. Key levels to watch: support at ${recent_low:,.2f} and resistance at ${recent_high:,.2f}."
+    elif bullish_signals == 1:
+        analysis['prediction'] = "Sell"
+        analysis['outlook'] = f"Technical indicators suggest weakness in Bitcoin's price action at ${current_price:,.2f}. Consider reducing exposure. Critical support at ${recent_low:,.2f} must hold to prevent further decline."
+    else:
+        analysis['prediction'] = "Strong Sell"
+        analysis['outlook'] = f"Multiple bearish signals detected with Bitcoin at ${current_price:,.2f}. Downside risk is elevated. If support at ${recent_low:,.2f} breaks, expect further decline toward ${recent_low * 0.95:,.2f}."
+    
+    return analysis
+
 # Fetch data
 with st.spinner("🔄 Fetching Bitcoin data..."):
     df = get_bitcoin_data(period_options[selected_period], interval_options[selected_interval])
@@ -301,6 +489,62 @@ if df is not None and not df.empty:
             )
     
     st.markdown("---")
+    
+    # Generate Market Analysis
+    market_analysis = generate_market_analysis(df, ma_short, ma_long)
+    
+    # Display AI Analysis Section
+    if market_analysis:
+        st.markdown("## 🤖 AI-Powered Market Analysis")
+        
+        # Main Analysis Box
+        st.markdown(f"""
+        <div class="analysis-box">
+            <div class="analysis-header">
+                🎯 Current Market Assessment
+            </div>
+            <div class="analysis-content">
+                <p><strong>Overall Outlook:</strong> {market_analysis['prediction']}</p>
+                <p>{market_analysis['outlook']}</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Detailed Predictions
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown(f"""
+            <div class="prediction-card">
+                <div class="prediction-title">📊 Technical Summary</div>
+                <div class="prediction-text">
+                    <p><strong>Trend:</strong> {market_analysis['trend']}</p>
+                    <p><strong>Momentum:</strong> {market_analysis['momentum']}</p>
+                    <p><strong>Volatility:</strong> {market_analysis['volatility']}</p>
+                    <p><strong>Volume:</strong> {market_analysis['volume']}</p>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown(f"""
+            <div class="prediction-card">
+                <div class="prediction-title">🎯 Key Price Levels</div>
+                <div class="prediction-text">
+                    <p><strong>Resistance:</strong> ${market_analysis['key_levels']['resistance']:,.2f}</p>
+                    <p><strong>Support:</strong> ${market_analysis['key_levels']['support']:,.2f}</p>
+                    <p><strong>BB Upper:</strong> ${market_analysis['key_levels']['bb_upper']:,.2f}</p>
+                    <p><strong>BB Lower:</strong> ${market_analysis['key_levels']['bb_lower']:,.2f}</p>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # Key Signals
+        st.markdown("### 🔔 Key Trading Signals")
+        for signal in market_analysis['signals']:
+            st.markdown(f"- {signal}")
+        
+        st.markdown("---")
     
     # Create main chart with dark theme
     fig = make_subplots(
